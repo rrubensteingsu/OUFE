@@ -1115,17 +1115,21 @@ const HINT_CONTEXTS = {
   npv:'NPV = sum of PV revenues minus sum of PV costs. Negative NPV = deficit; the magnitude tells you exactly how much more PV revenue (or less PV cost) is needed to break even. For Q2, that gap is the target to close.'
 };
 
-// All Claude API calls go through the Apps Script proxy so the API key
-// never appears in this file. The proxy accepts { action, payload } and
-// returns { text } or { error }.
+// All Claude API calls go to the Apps Script proxy as GET requests
+// (GET allows CORS-readable responses; POST does not in Apps Script).
+// Submissions still use POST with no-cors since we don't need to read that response.
 async function claudeViaProxy(action, payload) {
   if (!SHEET_URL || SHEET_URL === 'PASTE_YOUR_APPS_SCRIPT_URL_HERE') {
     throw new Error('Apps Script URL not configured.');
   }
-  const resp = await fetch(SHEET_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, ...payload })
+  // Encode system prompt and message as URL parameters
+  const params = new URLSearchParams({
+    action,
+    system:  payload.system  || '',
+    message: payload.message || ''
+  });
+  const resp = await fetch(SHEET_URL + '?' + params.toString(), {
+    method: 'GET'
   });
   const data = await resp.json();
   if (data.error) throw new Error(data.error);
