@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OUFE Assignment — PMAP 8261</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;1,300&family=Playfair+Display:wght@700&display=swap');
+
+  :root {
+    --ink: #1a1a2e; --paper: #f7f5f0; --ledger: #eae7df; --rule: #c8c2b4;
+    --accent: #2d6a4f; --accent-light: #d8f3dc;
+    --warn: #b5451b; --warn-light: #fde8df;
+    --gold: #c9a84c; --gold-light: #fef9eb;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+    --display: 'Playfair Display', serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--sans); background: var(--paper); color: var(--ink); font-size: 15px; line-height: 1.65; }
+
+  /* ── Password gate ── */
+  #pw-gate {
+    position: fixed; inset: 0; background: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999;
+  }
+  #pw-box {
+    background: #252538; border-radius: 6px; padding: 2.5rem 2.5rem 2rem;
+    width: 340px; text-align: center;
+  }
+  #pw-box .pw-course { font-family: var(--mono); font-size: 0.65rem; text-transform: uppercase;
+    letter-spacing: 0.15em; color: var(--gold); margin-bottom: 0.75rem; }
+  #pw-box h2 { font-family: var(--display); font-size: 1.4rem; color: #e8e5df; margin-bottom: 0.4rem; }
+  #pw-box p { font-size: 0.82rem; color: #888; margin-bottom: 1.5rem; }
+  #pw-input {
+    width: 100%; font-family: var(--mono); font-size: 1rem; letter-spacing: 0.12em;
+    background: #1a1a2e; border: 1px solid #444; border-radius: 3px;
+    padding: 0.65rem 1rem; color: #e8e5df; text-align: center; margin-bottom: 0.75rem;
+  }
+  #pw-input:focus { outline: none; border-color: var(--gold); }
+  #pw-submit {
+    width: 100%; font-family: var(--mono); font-size: 0.75rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.1em; background: var(--gold);
+    color: var(--ink); border: none; border-radius: 3px; padding: 0.65rem 1rem;
+    cursor: pointer; transition: background 0.2s;
+  }
+  #pw-submit:hover { background: #e0bc5a; }
+  #pw-error { font-family: var(--mono); font-size: 0.72rem; color: var(--warn);
+    margin-top: 0.6rem; min-height: 1.1em; }
+  /* Hide main content until unlocked */
+  #app { display: none; }
+
+  header { background: var(--ink); color: var(--paper); padding: 2rem 2.5rem 1.5rem; border-bottom: 3px solid var(--gold); }
+  .course-tag { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin-bottom: 0.5rem; }
+  header h1 { font-family: var(--display); font-size: 1.9rem; line-height: 1.2; max-width: 640px; }
+  header p { margin-top: 0.5rem; font-size: 0.85rem; color: #b0aaa0; font-weight: 300; }
+
+  .shell { display: grid; grid-template-columns: 1fr 340px; min-height: calc(100vh - 120px); }
+  main { padding: 2rem 2.5rem; border-right: 1px solid var(--rule); }
+  aside { padding: 1.5rem; background: #fff; position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; }
+
+  .tabs { display: flex; border-bottom: 2px solid var(--rule); margin-bottom: 2rem; }
+  .tab { padding: 0.6rem 1.2rem; font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border: none; background: none; cursor: pointer; color: #888; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: color 0.2s, border-color 0.2s; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  .tab:hover:not(.active) { color: var(--ink); }
+  .panel { display: none; } .panel.active { display: block; }
+
+  /* Case */
+  .case-section { background: white; border: 1px solid var(--rule); border-radius: 4px; padding: 1.5rem; margin-bottom: 1.5rem; }
+  .case-section h3 { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); margin-bottom: 0.75rem; }
+  .case-section p { font-size: 0.9rem; margin-bottom: 0.6rem; color: #333; }
+  .case-section p:last-child { margin-bottom: 0; }
+  .facts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.5rem; }
+  .fact-card { background: white; border: 1px solid var(--rule); border-radius: 4px; padding: 1rem; }
+  .fact-card .label { font-family: var(--mono); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: #888; margin-bottom: 0.3rem; }
+  .fact-card .value { font-size: 1rem; font-weight: 600; color: var(--ink); }
+  .fact-card .note { font-size: 0.75rem; color: #777; margin-top: 0.15rem; }
+  .fact-card.cost { border-left: 3px solid var(--warn); }
+  .fact-card.revenue { border-left: 3px solid var(--accent); }
+  .fact-card.neutral { border-left: 3px solid var(--gold); }
+
+  /* Questions */
+  .question-block { background: white; border: 1px solid var(--rule); border-radius: 4px; margin-bottom: 1.5rem; overflow: hidden; }
+  .q-header { background: var(--ink); color: var(--paper); padding: 0.75rem 1.25rem; display: flex; align-items: center; gap: 0.75rem; }
+  .q-num { font-family: var(--mono); font-size: 0.65rem; background: var(--gold); color: var(--ink); padding: 0.2rem 0.5rem; border-radius: 2px; font-weight: 600; white-space: nowrap; }
+  .q-header span { font-size: 0.9rem; }
+  .q-body { padding: 1.25rem; }
+
+  /* Input rows */
+  .input-row { margin-bottom: 1.1rem; }
+  .input-row label { display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 0.35rem; color: #444; }
+  .input-row .sub { font-size: 0.72rem; font-weight: 400; color: #888; margin-left: 0.4rem; }
+
+  /* Number inputs */
+  .dollar-wrap { position: relative; display: inline-block; }
+  .dollar-wrap::before { content: '$'; position: absolute; left: 0.7rem; top: 50%; transform: translateY(-50%); color: #888; font-family: var(--mono); }
+  .dollar-wrap input { padding-left: 1.6rem !important; width: 200px; }
+  input[type="number"] { font-family: var(--mono); font-size: 0.9rem; border: 1px solid var(--rule); border-radius: 3px; padding: 0.5rem 0.75rem; background: var(--paper); color: var(--ink); width: 200px; transition: border-color 0.2s; }
+  select { font-family: var(--sans); font-size: 0.9rem; border: 1px solid var(--rule); border-radius: 3px; padding: 0.5rem 0.75rem; background: var(--paper); color: var(--ink); width: 100%; transition: border-color 0.2s; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  input.correct, select.correct { border-color: var(--accent); background: var(--accent-light); }
+  input.wrong, select.wrong { border-color: var(--warn); background: var(--warn-light); }
+
+  /* Formula input — the new element */
+  .formula-row { margin-bottom: 0.5rem; }
+  .formula-row label { display: block; font-size: 0.72rem; font-weight: 600; color: #555; margin-bottom: 0.25rem; letter-spacing: 0.01em; }
+  .formula-row label .eq-tag { font-family: var(--mono); font-size: 0.68rem; background: var(--ink); color: var(--gold); padding: 0.05rem 0.35rem; border-radius: 2px; margin-right: 0.3rem; letter-spacing: 0; }
+  .formula-input-wrap { position: relative; display: flex; align-items: center; gap: 0; }
+  .formula-input-wrap::before { content: '='; position: absolute; left: 0.65rem; top: 50%; transform: translateY(-50%); color: var(--accent); font-family: var(--mono); font-weight: 600; font-size: 0.85rem; pointer-events: none; }
+  .formula-field { font-family: var(--mono); font-size: 0.82rem; border: 1px solid var(--rule); border-radius: 3px 0 0 3px; padding: 0.45rem 0.6rem 0.45rem 1.4rem; background: #f0ede8; color: var(--ink); width: 100%; max-width: 380px; transition: border-color 0.2s; }
+  .formula-field:focus { outline: none; border-color: var(--accent); background: white; }
+  .formula-field.correct { border-color: var(--accent); background: var(--accent-light); }
+  .formula-field.wrong { border-color: var(--warn); background: var(--warn-light); }
+  .eval-btn { font-family: var(--mono); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; background: var(--accent); color: white; border: none; border-radius: 0 3px 3px 0; padding: 0 0.9rem; cursor: pointer; height: 34px; white-space: nowrap; transition: background 0.2s; }
+  .eval-btn:hover { background: #1e4d38; }
+  .formula-result { font-family: var(--mono); font-size: 0.75rem; margin-top: 0.25rem; color: #888; min-height: 1.2em; }
+  .formula-result.ok { color: var(--accent); }
+  .formula-result.err { color: var(--warn); }
+
+  .feedback-box { margin-top: 0.6rem; padding: 0.65rem 0.9rem; border-radius: 3px; font-size: 0.82rem; display: none; }
+  .feedback-box.show { display: block; }
+  .feedback-box.correct { background: var(--accent-light); color: #1e4d38; border-left: 3px solid var(--accent); }
+  .feedback-box.wrong { background: var(--warn-light); color: var(--warn); border-left: 3px solid var(--warn); }
+
+  /* Concepts */
+  .concept-card { background: var(--ledger); border: 1px solid var(--rule); border-radius: 4px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
+  .concept-card h4 { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 0.5rem; }
+  .concept-card p { font-size: 0.85rem; color: #444; margin-bottom: 0.5rem; }
+  .formula-block { font-family: var(--mono); font-size: 0.82rem; background: white; border: 1px solid var(--rule); border-radius: 3px; padding: 0.5rem 0.75rem; margin: 0.5rem 0; color: var(--ink); white-space: pre; }
+
+  /* Excel tips */
+  .excel-tip { background: var(--gold-light); border: 1px solid #e8d5a0; border-radius: 4px; padding: 0.75rem 1rem; margin-bottom: 0.75rem; }
+  .excel-tip .tip-tag { font-family: var(--mono); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: #7a5a00; font-weight: 600; margin-bottom: 0.3rem; }
+  .excel-tip p { font-size: 0.82rem; color: #555; }
+  .excel-tip code { font-family: var(--mono); font-size: 0.78rem; background: rgba(0,0,0,0.06); padding: 0.1rem 0.3rem; border-radius: 2px; }
+
+  /* Sidebar */
+  .sidebar-section { border-bottom: 1px solid var(--rule); padding-bottom: 1rem; }
+  .sidebar-section:last-child { border-bottom: none; }
+  .sidebar-title { font-family: var(--mono); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.12em; color: #999; margin-bottom: 0.6rem; }
+  .hint-btn { width: 100%; font-family: var(--mono); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; background: var(--ink); color: var(--gold); border: none; border-radius: 3px; padding: 0.6rem 1rem; cursor: pointer; transition: background 0.2s; text-align: left; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+  .hint-btn:hover { background: #2a2a40; }
+  .hint-area { background: var(--ink); color: #e0ddd5; border-radius: 3px; padding: 1rem; font-size: 0.82rem; line-height: 1.6; display: none; font-family: var(--sans); }
+  .hint-area.show { display: block; }
+  .hint-area .thinking { color: var(--gold); font-family: var(--mono); font-size: 0.7rem; animation: blink 1s step-end infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  .progress-bar-wrap { background: var(--ledger); border-radius: 99px; height: 6px; overflow: hidden; margin-bottom: 0.4rem; }
+  .progress-bar-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.5s ease; }
+  .progress-label { font-family: var(--mono); font-size: 0.7rem; color: #888; }
+  .ledger-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 0.78rem; margin-top: 0.75rem; }
+  .ledger-table td { padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; color: var(--ink); }
+  .ledger-table tr:last-child td { border-bottom: none; }
+  textarea { font-family: var(--sans); font-size: 0.82rem; border: 1px solid var(--rule); border-radius: 3px; padding: 0.5rem 0.75rem; background: var(--paper); color: var(--ink); width: 100%; resize: vertical; }
+
+  @media (max-width: 860px) {
+    .shell { grid-template-columns: 1fr; }
+    aside { position: static; height: auto; }
+    .facts-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── Submission panel ── */
+  .submit-panel { background: var(--ink); border-radius: 4px; padding: 1rem; }
+  .submit-panel .sp-label { font-family: var(--mono); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--gold); margin-bottom: 0.5rem; }
+  .name-field { width: 100%; font-family: var(--sans); font-size: 0.9rem; border: 1px solid #444; border-radius: 3px; padding: 0.5rem 0.75rem; background: #252538; color: #e0ddd5; margin-bottom: 0.75rem; }
+  .name-field::placeholder { color: #666; }
+  .name-field:focus { outline: none; border-color: var(--gold); }
+  .submit-btn { width: 100%; font-family: var(--mono); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; background: var(--gold); color: var(--ink); border: none; border-radius: 3px; padding: 0.65rem 1rem; cursor: pointer; transition: background 0.2s; }
+  .submit-btn:hover { background: #e0bc5a; }
+  .submit-btn:disabled { background: #555; color: #888; cursor: default; }
+  .submit-status { font-family: var(--mono); font-size: 0.7rem; color: #aaa; margin-top: 0.5rem; min-height: 1.2em; text-align: center; }
+
+  /* ── Grading report overlay ── */
+  .report-overlay { position: fixed; inset: 0; background: rgba(10,10,20,0.82); z-index: 100; display: none; align-items: flex-start; justify-content: center; padding: 2rem 1rem; overflow-y: auto; }
+  .report-overlay.show { display: flex; }
+  .report-card { background: white; border-radius: 6px; max-width: 760px; width: 100%; padding: 2rem 2.5rem; position: relative; }
+
+  /* report header */
+  .rpt-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid var(--ink); }
+  .rpt-title { font-family: var(--display); font-size: 1.3rem; color: var(--ink); }
+  .rpt-meta { font-family: var(--mono); font-size: 0.7rem; color: #888; margin-top: 0.25rem; }
+  .close-btn { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: #888; line-height: 1; padding: 0.2rem; }
+  .close-btn:hover { color: var(--ink); }
+
+  /* score badge */
+  .score-banner { display: flex; align-items: center; gap: 1.5rem; background: var(--ledger); border-radius: 4px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; }
+  .score-circle { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: flex-end; padding-right: 2px; font-family: var(--display); font-size: 1.6rem; font-weight: 700; flex-shrink: 0; }
+  .score-circle.five  { background: var(--accent-light); color: var(--accent); border: 2px solid var(--accent); }
+  .score-circle.four5 { background: #e8f4e8; color: #2a6040; border: 2px solid #5a9a70; }
+  .score-circle.four  { background: var(--gold-light); color: #7a5a00; border: 2px solid var(--gold); }
+  .score-circle.low   { background: var(--warn-light); color: var(--warn); border: 2px solid var(--warn); }
+  .score-label { font-family: var(--mono); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: #888; margin-bottom: 0.2rem; }
+  .score-summary { font-size: 0.9rem; color: #333; line-height: 1.5; }
+
+  /* section rows */
+  .rpt-section { margin-bottom: 1.25rem; }
+  .rpt-section-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.4rem; }
+  .rpt-section-name { font-family: var(--mono); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink); }
+  .rpt-section-status { font-family: var(--mono); font-size: 0.68rem; padding: 0.15rem 0.5rem; border-radius: 99px; }
+  .rpt-section-status.full    { background: var(--accent-light); color: var(--accent); }
+  .rpt-section-status.partial { background: var(--gold-light); color: #7a5a00; }
+  .rpt-section-status.missing { background: var(--warn-light); color: var(--warn); }
+  .rpt-section-body { font-size: 0.83rem; color: #444; line-height: 1.6; border-left: 3px solid var(--rule); padding-left: 0.75rem; }
+
+  /* work detail table */
+  .work-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 0.75rem; margin-top: 1rem; margin-bottom: 1.5rem; }
+  .work-table th { text-align: left; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: #888; border-bottom: 1px solid var(--rule); padding: 0.35rem 0.5rem; }
+  .work-table td { padding: 0.35rem 0.5rem; border-bottom: 1px solid #eee; vertical-align: top; }
+  .work-table tr:last-child td { border-bottom: none; }
+  .tick { color: var(--accent); } .cross { color: var(--warn); } .dash { color: #aaa; }
+
+  /* instructor override */
+  .override-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--rule); }
+  .override-row label { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: #666; white-space: nowrap; }
+  .score-select { font-family: var(--mono); font-size: 0.9rem; border: 1px solid var(--rule); border-radius: 3px; padding: 0.4rem 0.6rem; background: var(--paper); }
+  .notes-field { width: 100%; font-family: var(--sans); font-size: 0.85rem; border: 1px solid var(--rule); border-radius: 3px; padding: 0.5rem 0.75rem; margin-top: 0.75rem; resize: vertical; }
+  .print-btn { font-family: var(--mono); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; background: var(--ink); color: white; border: none; border-radius: 3px; padding: 0.55rem 1.2rem; cursor: pointer; margin-top: 0.75rem; }
+  .print-btn:hover { background: #2a2a40; }
+
+  @media print {
+    .report-overlay { position: static; padding: 0; background: none; }
+    .report-card { box-shadow: none; border: none; max-width: 100%; padding: 0; }
+    .close-btn, .override-row .print-btn, .submit-panel, aside, .tabs, main { display: none !important; }
+    .report-overlay.show { display: block; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Password gate ── -->
+<div id="pw-gate">
+  <div id="pw-box">
+    <div class="pw-course">PMAP 8261 &middot; Fall 2025</div>
+    <h2>Course Assignment</h2>
+    <p>Enter the class password to access this assignment.</p>
+    <input type="password" id="pw-input" placeholder="Password" autocomplete="off"
+           onkeydown="if(event.key==='Enter') checkPassword()">
+    <button id="pw-submit" onclick="checkPassword()">Enter</button>
+    <div id="pw-error"></div>
+  </div>
+</div>
+
+<!-- ── Main app (hidden until password entered) ── -->
+<div id="app">
+
+<header>
+  <div class="course-tag">PMAP 8261 &middot; Nonprofit Financial Management &middot; Fall 2025</div>
+  <h1>Orangetown United for Full Employment</h1>
+  <p>Excel Assignment No. 1 &mdash; Time Value of Money &amp; Program Financial Feasibility</p>
+</header>
+
+<div class="shell">
+<main>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('case',this)">Case</button>
+    <button class="tab" onclick="switchTab('concepts',this)">Key Concepts</button>
+    <button class="tab" onclick="switchTab('q1',this)">Question 1</button>
+    <button class="tab" onclick="switchTab('q2',this)">Question 2</button>
+    <button class="tab" onclick="switchTab('excel',this)">Excel Guide</button>
+  </div>
+
+  <!-- ══ CASE ══ -->
+  <div class="panel active" id="panel-case">
+    <div class="case-section">
+      <h3>Situation</h3>
+      <p>Orangetown recently suffered major layoffs by its primary employer &mdash; a manufacturer of heating systems. You are Executive Director of <strong>Orangetown United for Full Employment (OUFE)</strong>, a nonprofit providing job training and placement services.</p>
+      <p>You want to launch a new skills training program. The board will only support it if the program is <em>financially self-sufficient</em> over the next six years &mdash; meaning total revenues must cover total costs when both are expressed in today&rsquo;s dollars.</p>
+    </div>
+    <div class="case-section">
+      <h3>Program Structure</h3>
+      <p>Each cohort consists of up to <strong>35 workers</strong> who receive <strong>six months of training</strong> and earn a certificate. New cohorts start every six months. With 500+ workers laid off, OUFE will run the program for <strong>six full years</strong> at maximum enrollment &mdash; <strong>12 cohorts total</strong>.</p>
+    </div>
+    <h3 style="font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:.12em;color:#888;margin-bottom:.75rem;">All Cash Flows</h3>
+    <div class="facts-grid">
+      <div class="fact-card cost"><div class="label">Building Renovation</div><div class="value">$250,000</div><div class="note">One-time, paid upfront (Year 0)</div></div>
+      <div class="fact-card cost"><div class="label">Incremental Utilities</div><div class="value">$2,000 / month</div><div class="note">City pays $500/mo; total is $2,500; OUFE pays the $2,000 difference for 72 months</div></div>
+      <div class="fact-card cost"><div class="label">Insurance Premium</div><div class="value">$10,000 / year</div><div class="note">Paid at start of each year (annuity due) — 6 payments</div></div>
+      <div class="fact-card cost"><div class="label">Trainer Salaries + Taxes</div><div class="value">$1,600 / month + 7.65%</div><div class="note">2 trainers x $800/mo; OUFE also pays employer SS &amp; Medicare</div></div>
+      <div class="fact-card cost"><div class="label">Equipment Shipping (inbound)</div><div class="value">$40,000</div><div class="note">One-time, paid at program start (Year 0)</div></div>
+      <div class="fact-card cost"><div class="label">Equipment Return Shipping</div><div class="value">$45,000</div><div class="note">One-time, paid at program end (end of Year 6)</div></div>
+      <div class="fact-card revenue"><div class="label">Federal DOL Grant</div><div class="value">$1,500 / graduate</div><div class="note">Paid at each cohort&rsquo;s graduation; 35 grads x 12 cohorts = 420 total</div></div>
+      <div class="fact-card revenue"><div class="label">Foundation Grant</div><div class="value">$35,000 (one-time)</div><div class="note">Received at end of Year 3</div></div>
+      <div class="fact-card neutral"><div class="label">Discount Rate</div><div class="value">8% per year</div><div class="note">Use 8%/12 monthly, 8%/2 semi-annual, 8% annual. Also analyze at 6%.</div></div>
+    </div>
+    <div class="case-section">
+      <h3>The Board&rsquo;s Questions</h3>
+      <p><strong>Q1:</strong> Is the program financially self-sufficient? What is the surplus or deficit in present value terms? How does the answer change at 6%?</p>
+      <p><strong>Q2:</strong> If there is a deficit, what can you recommend to make the program self-sufficient?</p>
+    </div>
+  </div>
+
+  <!-- ══ CONCEPTS ══ -->
+  <div class="panel" id="panel-concepts">
+    <div class="concept-card">
+      <h4>Why Time Value of Money?</h4>
+      <p>A dollar today is worth more than a dollar in the future because today&rsquo;s dollar can be invested. When cash flows occur at different points in time, we discount future amounts back to today using a rate that reflects the opportunity cost of money &mdash; here, 8%.</p>
+    </div>
+    <div class="concept-card">
+      <h4>Present Value of a Single Lump Sum</h4>
+      <p>For a one-time payment of FV occurring n years from today:</p>
+      <div class="formula-block">PV = FV / (1 + r)^n
+
+Excel: =PV(r, n, 0, -FV)   or   =FV / (1+r)^n</div>
+      <p>Use the <em>annual</em> rate when n is in years. A Year-0 cash flow needs no discounting (n = 0).</p>
+    </div>
+    <div class="concept-card">
+      <h4>Present Value of an Ordinary Annuity</h4>
+      <p>When the same payment PMT occurs at the <em>end</em> of each period for n periods:</p>
+      <div class="formula-block">PV = PMT &times; [1 &minus; (1 + r)^(-n)] / r
+
+Excel: =PV(rate, nper, -pmt)   &larr; note the negative sign</div>
+      <p>In Excel, PV returns a negative when you enter positive PMT; negate the PMT argument or the result.</p>
+    </div>
+    <div class="concept-card">
+      <h4>Annuity Due (Beginning-of-Period Payments)</h4>
+      <p>Payments at the <em>start</em> of each period. Multiply the ordinary annuity PV by (1 + r), or use Excel&rsquo;s optional type argument:</p>
+      <div class="formula-block">Excel: =PV(rate, nper, -pmt, 0, 1)   &larr; the final "1" = annuity due</div>
+      <p>The insurance premium is paid before each year begins &mdash; this is an annuity due.</p>
+    </div>
+    <div class="concept-card">
+      <h4>Matching Rate to Period</h4>
+      <p>The rate in a PV formula must match the length of one payment period. If payments occur monthly, you need a monthly rate. If they occur every six months, you need a six-month rate. If annually, you use the annual rate directly.</p>
+      <p>To convert an annual rate to a shorter period: divide by the number of those periods in a year. Then set <em>nper</em> to the total number of those periods over the full life of the cash flow stream.</p>
+      <div class="formula-block">monthly rate  = annual rate / 12,  nper = total months
+quarterly rate = annual rate / 4,   nper = total quarters
+semi-annual rate = annual rate / 2,  nper = total 6-mo periods</div>
+      <p style="font-size:0.82rem;color:#666;">A common mistake: aggregating monthly payments into an annual total and discounting once per year. This understates the PV of costs because it ignores that each monthly payment is made <em>earlier</em> than year-end and therefore has a higher PV than a single year-end lump sum.</p>
+    </div>
+    <div class="concept-card">
+      <h4>Net Present Value</h4>
+      <div class="formula-block">NPV = &sum; PV(revenues) &minus; &sum; PV(costs)</div>
+      <p>NPV &gt; 0 means a surplus &mdash; the program pays for itself. NPV &lt; 0 means a deficit &mdash; additional funds or cost cuts are needed.</p>
+    </div>
+  </div>
+
+  <!-- ══ Q1 ══ -->
+  <div class="panel" id="panel-q1">
+
+    <!-- Part A: structure (no formula inputs needed — arithmetic not Excel functions) -->
+    <div class="question-block">
+      <div class="q-header"><span class="q-num">Part A</span><span>Program structure &amp; undiscounted amounts</span></div>
+      <div class="q-body">
+        <p style="font-size:0.85rem;color:#555;margin-bottom:1rem;">Get the program arithmetic right before touching Excel PV functions.</p>
+
+        <div class="input-row">
+          <label>Total months the program runs</label>
+          <input type="number" id="a_months" placeholder="" oninput="checkA('months')">
+          <div class="feedback-box" id="fb_a_months"></div>
+        </div>
+        <div class="input-row">
+          <label>Total cohorts over six years</label>
+          <input type="number" id="a_cohorts" placeholder="" oninput="checkA('cohorts')">
+          <div class="feedback-box" id="fb_a_cohorts"></div>
+        </div>
+        <div class="input-row">
+          <label>Total graduates over six years</label>
+          <input type="number" id="a_grads" placeholder="" oninput="checkA('grads')">
+          <div class="feedback-box" id="fb_a_grads"></div>
+        </div>
+        <div class="input-row">
+          <label>Monthly trainer cost including 7.65% payroll tax <span class="sub">(both trainers combined)</span></label>
+          <div class="dollar-wrap"><input type="number" id="a_trainer_mo" placeholder="0" oninput="checkA('trainer_mo')"></div>
+          <div class="feedback-box" id="fb_a_trainer_mo"></div>
+        </div>
+        <div class="input-row">
+          <label>DOL payment received at each cohort&rsquo;s graduation <span class="sub">(35 grads x $1,500)</span></label>
+          <div class="dollar-wrap"><input type="number" id="a_dol_cohort" placeholder="0" oninput="checkA('dol_cohort')"></div>
+          <div class="feedback-box" id="fb_a_dol_cohort"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Part B: PV of costs — formula inputs + answer checks -->
+    <div class="question-block">
+      <div class="q-header"><span class="q-num">Part B</span><span>Present value of costs at 8%</span></div>
+      <div class="q-body">
+        <p style="font-size:0.85rem;color:#666;margin-bottom:1.25rem;">For each item, first write the Excel formula you would enter, then enter the resulting value. The formula checker evaluates what you type using standard Excel syntax — you choose the right function, rate, and number of periods. Omit the leading <code style="font-family:var(--mono);font-size:0.8rem;">=</code> sign.</p>
+
+        <!-- B1: Upfront costs -->
+        <div class="input-row">
+          <label>1. PV of upfront costs <span class="sub">(renovation + equipment shipping)</span></label>
+          <div class="formula-row">
+            <label><span class="eq-tag">fx</span> Excel formula</label>
+            <div class="formula-input-wrap">
+              <input type="text" class="formula-field" id="fx_b_upfront" placeholder="your formula here" onkeydown="fxEnter(event,'b_upfront')">
+              <button class="eval-btn" onclick="evalFormula('b_upfront')">Check formula</button>
+            </div>
+            <div class="formula-result" id="fr_b_upfront"></div>
+          </div>
+          <div class="dollar-wrap" style="margin-top:0.4rem;">
+            <input type="number" id="b_upfront" placeholder="0" oninput="checkB('upfront')">
+          </div>
+          <div class="feedback-box" id="fb_b_upfront"></div>
+        </div>
+
+        <!-- B2: Equipment return -->
+        <div class="input-row">
+          <label>2. PV of equipment return shipping <span class="sub">(lump sum, end of Year 6)</span></label>
+          <div class="formula-row">
+            <label><span class="eq-tag">fx</span> Excel formula</label>
+            <div class="formula-input-wrap">
+              <input type="text" class="formula-field" id="fx_b_equip_ret" placeholder="your formula here" onkeydown="fxEnter(event,'b_equip_ret')">
+              <button class="eval-btn" onclick="evalFormula('b_equip_ret')">Check formula</button>
+            </div>
+            <div class="formula-result" id="fr_b_equip_ret"></div>
+          </div>
+          <div class="dollar-wrap" style="margin-top:0.4rem;">
+            <input type="number" id="b_equip_ret" placeholder="0" oninput="checkB('equip_ret')">
+          </div>
+          <div class="feedback-box" id="fb_b_equip_ret"></div>
+        </div>
+
+        <!-- B3: Insurance -->
+        <div class="input-row">
+          <label>3. PV of insurance premiums <span class="sub">(annual premium, paid before each year begins)</span></label>
+          <div class="formula-row">
+            <label><span class="eq-tag">fx</span> Excel formula</label>
+            <div class="formula-input-wrap">
+              <input type="text" class="formula-field" id="fx_b_insurance" placeholder="your formula here" onkeydown="fxEnter(event,'b_insurance')">
+              <button class="eval-btn" onclick="evalFormula('b_insurance')">Check formula</button>
+            </div>
+            <div class="formula-result" id="fr_b_insurance"></div>
+          </div>
+          <div class="dollar-wrap" style="margin-top:0.4rem;">
+            <input type="number" id="b_insurance" placeholder="0" oninput="checkB('insurance')">
+          </div>
+          <div class="feedback-box" id="fb_b_insurance"></div>
+        </div>
+
+        <!-- B4: Trainers -->
+        <div class="input-row">
+          <label>4. PV of trainer wages + payroll taxes <span class="sub">(paid monthly for the full program duration)</span></label>
+          <div class="formula-row">
+            <label><span class="eq-tag">fx</span> Excel formula</label>
+            <div class="formula-input-wrap">
+              <input type="text" class="formula-field" id="fx_b_trainers" placeholder="your formula here" onkeydown="fxEnter(event,'b_trainers')">
+              <button class="eval-btn" onclick="evalFormula('b_trainers')">Check formula</button>
+            </div>
+            <div class="formula-result" id="fr_b_trainers"></div>
+          </div>
+          <div class="dollar-wrap" style="margin-top:0.4rem;">
+            <input type="number" id="b_trainers" placeholder="0" oninput="checkB('trainers')">
+          </div>
+          <div class="feedback-box" id="fb_b_trainers"></div>
+        </div>
+
+        <!-- B5: Utilities -->
+        <div class="input-row">
+          <label>5. PV of incremental utilities <span class="sub">(paid monthly for the full program duration)</span></label>
+          <div class="formula-row">
+            <label><span class="eq-tag">fx</span> Excel formula</label>
+            <div class="formula-input-wrap">
+              <input type="text" class="formula-field" id="fx_b_utilities" placeholder="your formula here" onkeydown="fxEnter(event,'b_utilities')">
+              <button class="eval-btn" onclick="evalFormula('b_utilities')">Check formula</button>
+            </div>
+            <div class="formula-result" id="fr_b_utilities"></div>
+          </div>
+          <div class="dollar-wrap" style="margin-top:0.4rem;">
+            <input type="number" id="b_utilities" placeholder="0" oninput="checkB('utilities')">
+          </div>
+          <div class="feedback-box" id="fb_b_utilities"></div>
+        </div>
+
+        <!-- B6: Total costs -->
+        <div class="input-row" style="border-top:1px solid var(--rule);padding-top:1rem;margin-top:0.5rem;">
+          <label>Total PV of all costs <span class="sub">(sum of items 1–5)</span></label>
+          <div class="dollar-wrap">
+            <input type="number" id="b_total_costs" placeholder="0" oninput="checkB('total_costs')">
+          </div>
+          <div class="feedback-box" id="fb_b_total_costs"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Part C: PV of revenues -->
+    <div class="question-block">
+      <div class="q-header"><span class="q-num">Part C</span><span>Present value of revenues at 8%</span></div>
+      <div class="q-body">
+        <p style="font-size:0.85rem;color:#666;margin-bottom:1.25rem;">The DOL grant is paid upon graduation of each cohort. Think carefully about how often that happens and what rate to use.</p>
+
+        <!-- C1: DOL -->
+        <div class="input-row">
+          <label>1. PV of DOL grant payments <span class="sub">(received at each cohort graduation)</span></label>
+          <div class="formula-row">
+            <label><span class="eq-tag">fx</span> Excel formula</label>
+            <div class="formula-input-wrap">
+              <input type="text" class="formula-field" id="fx_c_dol_pv" placeholder="your formula here" onkeydown="fxEnter(event,'c_dol_pv')">
+              <button class="eval-btn" onclick="evalFormula('c_dol_pv')">Check formula</button>
+            </div>
+            <div class="formula-result" id="fr_c_dol_pv"></div>
+          </div>
+          <div class="dollar-wrap" style="margin-top:0.4rem;">
+            <input type="number" id="c_dol_pv" placeholder="0" oninput="checkC('dol_pv')">
+          </div>
+          <div class="feedback-box" id="fb_c_dol_pv"></div>
+        </div>
+
+        <!-- C2: Foundation -->
+        <div class="input-row">
+          <label>2. PV of foundation grant <span class="sub">(lump sum, end of Year 3)</span></label>
+          <div class="formula-row">
+            <label><span class="eq-tag">fx</span> Excel formula</label>
+            <div class="formula-input-wrap">
+              <input type="text" class="formula-field" id="fx_c_foundation_pv" placeholder="your formula here" onkeydown="fxEnter(event,'c_foundation_pv')">
+              <button class="eval-btn" onclick="evalFormula('c_foundation_pv')">Check formula</button>
+            </div>
+            <div class="formula-result" id="fr_c_foundation_pv"></div>
+          </div>
+          <div class="dollar-wrap" style="margin-top:0.4rem;">
+            <input type="number" id="c_foundation_pv" placeholder="0" oninput="checkC('foundation_pv')">
+          </div>
+          <div class="feedback-box" id="fb_c_foundation_pv"></div>
+        </div>
+
+        <!-- C3: Total rev -->
+        <div class="input-row" style="border-top:1px solid var(--rule);padding-top:1rem;margin-top:0.5rem;">
+          <label>Total PV of all revenues</label>
+          <div class="dollar-wrap">
+            <input type="number" id="c_total_rev" placeholder="0" oninput="checkC('total_rev')">
+          </div>
+          <div class="feedback-box" id="fb_c_total_rev"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Part D: NPV -->
+    <div class="question-block">
+      <div class="q-header"><span class="q-num">Part D</span><span>Net Present Value &amp; Sensitivity</span></div>
+      <div class="q-body">
+        <div class="input-row">
+          <label>NPV at 8% <span class="sub">(total PV revenues minus total PV costs)</span></label>
+          <div class="dollar-wrap"><input type="number" id="d_npv8" placeholder="0" oninput="checkD('npv8')"></div>
+          <div class="feedback-box" id="fb_d_npv8"></div>
+        </div>
+        <div class="input-row">
+          <label>Is the program self-sufficient at 8%?</label>
+          <select id="d_selfsuff" onchange="checkD('selfsuff')">
+            <option value="">-- select --</option>
+            <option value="yes">Yes — surplus, board should approve</option>
+            <option value="no">No — deficit, needs modifications</option>
+          </select>
+          <div class="feedback-box" id="fb_d_selfsuff"></div>
+        </div>
+        <div class="input-row" style="margin-top:1.25rem;">
+          <label>NPV at 6% <span class="sub">(redo the full analysis with a 6% annual discount rate)</span></label>
+          <div class="dollar-wrap"><input type="number" id="d_npv6" placeholder="0" oninput="checkD('npv6')"></div>
+          <div class="feedback-box" id="fb_d_npv6"></div>
+        </div>
+        <div class="input-row">
+          <label>How does the lower discount rate affect NPV?</label>
+          <select id="d_rate_effect" onchange="checkD('rate_effect')">
+            <option value="">-- select --</option>
+            <option value="better">NPV improves (less negative or more positive) at 6%</option>
+            <option value="worse">NPV worsens (more negative) at 6%</option>
+            <option value="same">NPV is unchanged by the discount rate</option>
+          </select>
+          <div class="feedback-box" id="fb_d_rate_effect"></div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /panel-q1 -->
+
+  <!-- ══ Q2 ══ -->
+  <div class="panel" id="panel-q2">
+    <div class="question-block">
+      <div class="q-header"><span class="q-num">Q2</span><span>Making the Program Self-Sufficient</span></div>
+      <div class="q-body">
+        <p style="font-size:0.85rem;color:#555;margin-bottom:1.25rem;">If Q1 shows a deficit, propose realistic changes. Think about levers the Executive Director can actually control or negotiate.</p>
+        <div class="input-row">
+          <label>PV gap to close <span class="sub">(absolute value of your NPV at 8%)</span></label>
+          <div class="dollar-wrap"><input type="number" id="q2_gap" placeholder="0" oninput="checkQ2('gap')"></div>
+          <div class="feedback-box" id="fb_q2_gap"></div>
+        </div>
+        <div class="input-row">
+          <label>If proposing per-student tuition (collected at graduation, same timing as DOL): what fee per student closes the gap exactly?</label>
+          <div class="formula-row">
+            <label><span class="eq-tag">fx</span> Excel formula to solve for the per-student fee</label>
+            <div class="formula-input-wrap">
+              <input type="text" class="formula-field" id="fx_q2_tuition" placeholder="your formula here" onkeydown="fxEnter(event,'q2_tuition_fx')">
+              <button class="eval-btn" onclick="evalFormula('q2_tuition_fx')">Check formula</button>
+            </div>
+            <div class="formula-result" id="fr_q2_tuition_fx"></div>
+          </div>
+          <div class="dollar-wrap" style="margin-top:0.4rem;">
+            <input type="number" id="q2_tuition" placeholder="0" oninput="checkQ2('tuition')">
+          </div>
+          <div class="feedback-box" id="fb_q2_tuition"></div>
+        </div>
+        <p style="font-size:0.8rem;color:#999;margin-top:1rem;font-style:italic;">The tuition answer depends on your Q1 NPV. The checker validates your logic is internally consistent.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ EXCEL GUIDE ══ -->
+  <div class="panel" id="panel-excel">
+    <div class="excel-tip"><div class="tip-tag">PV Function Syntax</div><p><code>=PV(rate, nper, pmt, [fv], [type])</code> — <strong>rate</strong>: the periodic discount rate (must match the payment period); <strong>nper</strong>: total number of payment periods; <strong>pmt</strong>: payment per period (enter as negative for outflows); <strong>fv</strong>: optional lump sum at end (default 0); <strong>type</strong>: 0 = payment at end of period (default), 1 = payment at beginning. Excel returns a positive PV when pmt is entered as negative.</p></div>
+    <div class="excel-tip"><div class="tip-tag">Rate and Period Must Match</div><p>The most important decision for each cash flow is: what is <em>one period</em>? The answer determines both the rate you use and the nper you count. If one period is a month, use a monthly rate and count months. If one period is six months, use a six-month rate and count six-month intervals. Dividing the annual rate by the number of periods per year gives you the periodic rate. Store the annual rate in one cell and derive the others from it — then changing 8% to 6% recalculates everything automatically.</p></div>
+    <div class="excel-tip"><div class="tip-tag">Lump Sum PV</div><p>Two equivalent approaches: <code>=FV/(1+rate)^n</code> or <code>=PV(rate, n, 0, -FV)</code>. For Year-0 items their PV equals the face value — no discounting needed. For any lump sum at year n, use the annual rate with n equal to the number of years until payment.</p></div>
+    <div class="excel-tip"><div class="tip-tag">Annuity Due (Beginning-of-Period Payments)</div><p>By default, Excel's PV function assumes payments at the <em>end</em> of each period (ordinary annuity). When payments are made at the <em>start</em> of each period, use the optional 5th argument: <code>=PV(rate, nper, -pmt, 0, 1)</code>. The <code>1</code> flags it as an annuity due. Look carefully at the insurance premium — <em>when</em> is it paid relative to the year?</p></div>
+    <div class="excel-tip"><div class="tip-tag">Monthly vs. Annual Treatment of Recurring Costs</div><p>When a cost recurs every month, you have a choice: treat it as a monthly annuity (using a monthly rate and counting months), or aggregate it into an annual total and treat it as a single year-end payment. These give different answers. Think carefully about which better reflects reality — is the cash actually paid monthly, or at year-end?</p></div>
+    <div class="excel-tip"><div class="tip-tag">DOL Payments — Timing Matters</div><p>The DOL grant is paid at each cohort's graduation. Think about how frequently cohorts graduate and use that payment frequency to define your period. The payment per period is the per-graduate amount times the cohort size.</p></div>
+    <div class="excel-tip"><div class="tip-tag">Spreadsheet Layout</div><p>Recommended structure: (1) <strong>Inputs</strong> — annual rate, cohort size, individual cost and revenue amounts; (2) <strong>Costs</strong> — one row per item with columns for undiscounted amount, timing, and a PV formula referencing input cells; (3) <strong>Revenues</strong> — same; (4) <strong>Summary</strong> — Total PV Costs, Total PV Revenues, NPV. Keep formulas readable so your professor can follow your logic.</p></div>
+  </div>
+
+</main>
+
+<!-- ══ SIDEBAR ══ -->
+<aside>
+  <div class="sidebar-section">
+    <div class="sidebar-title">Progress</div>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+    <div class="progress-label" id="progress-label">0 of 22 checks passed</div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">AI Tutor &mdash; Hints</div>
+    <p style="font-size:0.78rem;color:#777;margin-bottom:0.75rem;">The tutor guides without giving answers.</p>
+    <button class="hint-btn" onclick="getHint('tvom')">&#x1F4A1; Time Value of Money</button>
+    <button class="hint-btn" onclick="getHint('periods')">&#x1F4C5; Rate &amp; Period Matching</button>
+    <button class="hint-btn" onclick="getHint('pv_syntax')">&#x1F4DD; PV Function Syntax</button>
+    <button class="hint-btn" onclick="getHint('insurance')">&#x1F6E1; Annuity Due (Insurance)</button>
+    <button class="hint-btn" onclick="getHint('dol')">&#x1F4B0; DOL Revenue Timing</button>
+    <button class="hint-btn" onclick="getHint('npv')">&#x1F4CA; Interpreting NPV</button>
+    <div class="hint-area" id="hint-area"></div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Key Parameters</div>
+    <table class="ledger-table">
+      <tr><td>Annual discount rate</td><td style="text-align:right;font-weight:600;">8%</td></tr>
+      <tr><td>Program duration</td><td style="text-align:right;font-weight:600;">6 years</td></tr>
+      <tr><td>Cohort size</td><td style="text-align:right;font-weight:600;">35 students</td></tr>
+      <tr><td>Cohort frequency</td><td style="text-align:right;font-weight:600;">Every 6 months</td></tr>
+    </table>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Submit for Grading</div>
+    <div class="submit-panel">
+      <div class="sp-label">Your name</div>
+      <input type="text" class="name-field" id="student-name" placeholder="First Last" autocomplete="name">
+      <button class="submit-btn" id="submit-btn" onclick="submitAssignment()">Submit Assignment</button>
+      <div class="submit-status" id="submit-status"></div>
+    </div>
+  </div>
+</aside>
+</div><!-- /shell -->
+
+<!-- ══ GRADING REPORT OVERLAY ══ -->
+<div class="report-overlay" id="report-overlay">
+  <div class="report-card" id="report-card">
+    <div class="rpt-header">
+      <div>
+        <div class="rpt-title">Grading Report</div>
+        <div class="rpt-meta" id="rpt-meta"></div>
+      </div>
+      <button class="close-btn" onclick="closeReport()">&#x2715;</button>
+    </div>
+
+    <div class="score-banner" id="score-banner">
+      <div class="score-circle" id="score-circle">…</div>
+      <div>
+        <div class="score-label">AI suggested score</div>
+        <div class="score-summary" id="score-summary">Analyzing…</div>
+      </div>
+    </div>
+
+    <div id="rpt-sections"></div>
+
+    <h3 style="font-family:var(--mono);font-size:0.68rem;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:.6rem;">Student Work Detail</h3>
+    <table class="work-table" id="work-table">
+      <thead><tr><th>Item</th><th>Formula entered</th><th>Formula ✓</th><th>Answer entered</th><th>Answer ✓</th></tr></thead>
+      <tbody id="work-tbody"></tbody>
+    </table>
+
+    <div class="override-row">
+      <label>Final score</label>
+      <select class="score-select" id="final-score">
+        <option value="5">5</option>
+        <option value="4.5">4.5</option>
+        <option value="4">4</option>
+        <option value="3.5">3.5</option>
+        <option value="3">3</option>
+        <option value="2">2</option>
+        <option value="1">1</option>
+        <option value="0">0</option>
+      </select>
+      <span style="font-family:var(--mono);font-size:0.72rem;color:#888;">/ 5 pts &mdash; override AI suggestion as needed</span>
+    </div>
+    <textarea class="notes-field" id="instructor-notes" rows="3" placeholder="Instructor notes (optional)…"></textarea>
+    <br>
+    <button class="print-btn" onclick="window.print()">&#x1F5A8; Print / Save as PDF</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// FORMULA EVALUATOR
+// Supports: PV(rate,nper,pmt,[fv],[type]), arithmetic (+,-,*,/,^),
+// numeric literals, and % suffix.
+// ══════════════════════════════════════════════════════════════
+
+// Safe math parser — no eval()
+function parseExpr(tokens) {
+  let pos = 0;
+  function peek() { return tokens[pos]; }
+  function consume() { return tokens[pos++]; }
+
+  function parseAddSub() {
+    let left = parseMulDiv();
+    while (peek() === '+' || peek() === '-') {
+      const op = consume();
+      const right = parseMulDiv();
+      left = op === '+' ? left + right : left - right;
+    }
+    return left;
+  }
+  function parseMulDiv() {
+    let left = parsePower();
+    while (peek() === '*' || peek() === '/') {
+      const op = consume();
+      const right = parsePower();
+      left = op === '*' ? left * right : left / right;
+    }
+    return left;
+  }
+  function parsePower() {
+    let base = parseUnary();
+    if (peek() === '^') { consume(); const exp = parseUnary(); base = Math.pow(base, exp); }
+    return base;
+  }
+  function parseUnary() {
+    if (peek() === '-') { consume(); return -parseAtom(); }
+    if (peek() === '+') { consume(); return parseAtom(); }
+    return parseAtom();
+  }
+  function parseAtom() {
+    const t = peek();
+    if (t === '(') {
+      consume(); // (
+      const val = parseAddSub();
+      if (peek() !== ')') throw new Error('Expected )');
+      consume(); // )
+      return val;
+    }
+    if (typeof t === 'number') { consume(); return t; }
+    if (typeof t === 'string' && t.toUpperCase() === 'PV') {
+      consume(); // PV
+      if (peek() !== '(') throw new Error('Expected ( after PV');
+      consume(); // (
+      const args = [];
+      args.push(parseAddSub());
+      while (peek() === ',') { consume(); args.push(parseAddSub()); }
+      if (peek() !== ')') throw new Error('Expected ) after PV args');
+      consume(); // )
+      return calcPV(args);
+    }
+    throw new Error('Unexpected token: ' + t);
+  }
+  return parseAddSub();
+}
+
+function tokenize(str) {
+  // Normalize: strip leading = if present, uppercase function names
+  str = str.trim().replace(/^=/, '').replace(/pv\s*\(/gi, 'PV(');
+  const tokens = [];
+  let i = 0;
+  while (i < str.length) {
+    const ch = str[i];
+    if (/\s/.test(ch)) { i++; continue; }
+    if ('+-*/^(),'.includes(ch)) { tokens.push(ch); i++; continue; }
+    // Numbers (including % suffix)
+    if (/\d/.test(ch) || (ch === '.' && /\d/.test(str[i+1]))) {
+      let num = '';
+      while (i < str.length && /[\d.]/.test(str[i])) { num += str[i++]; }
+      if (str[i] === '%') { tokens.push(parseFloat(num) / 100); i++; }
+      else { tokens.push(parseFloat(num)); }
+      continue;
+    }
+    // Identifiers (PV)
+    if (/[a-zA-Z]/.test(ch)) {
+      let word = '';
+      while (i < str.length && /[a-zA-Z]/.test(str[i])) { word += str[i++]; }
+      tokens.push(word.toUpperCase());
+      continue;
+    }
+    throw new Error('Unknown character: ' + ch);
+  }
+  return tokens;
+}
+
+// Excel PV function: PV(rate, nper, pmt, [fv=0], [type=0])
+// Returns positive value representing PV of outflows (mirrors Excel convention
+// when pmt is entered as negative).
+function calcPV(args) {
+  if (args.length < 3) throw new Error('PV requires at least 3 arguments');
+  const rate = args[0], nper = args[1], pmt = args[2];
+  const fv   = args[3] !== undefined ? args[3] : 0;
+  const type = args[4] !== undefined ? args[4] : 0;
+  let pv;
+  if (Math.abs(rate) < 1e-10) {
+    pv = -(pmt * nper + fv);
+  } else {
+    const factor = Math.pow(1 + rate, nper);
+    pv = -(pmt * (type ? (factor - 1) / rate * (1 + rate) : (factor - 1) / rate) / factor + fv / factor);
+  }
+  return pv; // positive = PV of outflows when pmt < 0
+}
+
+function evalFormulaStr(str) {
+  const tokens = tokenize(str);
+  return parseExpr(tokens);
+}
+
+// ── Formula field evaluation ──
+// For trainer and utility costs, we accept both correct monthly treatment
+// and the common annual-aggregation error, but flag which approach was used.
+const EXP_trainers_monthly  = calcPV([0.08/12, 72, -1600*1.0765]);   // correct
+const EXP_trainers_annual   = calcPV([0.08,     6, -1600*1.0765*12]); // annual aggregation error
+const EXP_utilities_monthly = calcPV([0.08/12, 72, -2000]);           // correct
+const EXP_utilities_annual  = calcPV([0.08,     6, -2000*12]);        // annual aggregation error
+const EXP_dol_semi          = calcPV([0.08/2,  12, -52500]);          // correct
+const EXP_dol_annual        = calcPV([0.08,     6, -52500*2]);        // annual aggregation error
+
+const FX_EXPECTED = {
+  'b_upfront':      { exp: 290000,                   tol: 10,  type: 'fixed' },
+  'b_equip_ret':    { exp: 45000/Math.pow(1.08,6),   tol: 10,  type: 'fixed' },
+  'b_insurance':    { exp: calcPV([0.08,6,-10000,0,1]), tol: 150, type: 'fixed',
+                      // also accept ordinary annuity (missed annuity-due) as partial
+                      exp_partial: calcPV([0.08,6,-10000]) },
+  'b_trainers':     { exp: EXP_trainers_monthly, tol: 200, type: 'period_sensitive',
+                      exp_annual: EXP_trainers_annual },
+  'b_utilities':    { exp: EXP_utilities_monthly, tol: 200, type: 'period_sensitive',
+                      exp_annual: EXP_utilities_annual },
+  'c_dol_pv':       { exp: EXP_dol_semi, tol: 200, type: 'period_sensitive',
+                      exp_annual: EXP_dol_annual },
+  'c_foundation_pv':{ exp: 35000/Math.pow(1.08,3), tol: 10, type: 'fixed' },
+};
+
+// Track which period approach each student used — reported to grader
+const periodApproach = {};  // key -> 'correct_monthly' | 'annual_aggregation' | 'other'
+
+let fxPassed = new Set();
+
+function evalFormula(key) {
+  const inputEl = document.getElementById('fx_' + key);
+  const resultEl = document.getElementById('fr_' + key);
+  const str = inputEl.value.trim();
+  if (!str) return;
+
+  if (key === 'q2_tuition_fx') { evalTuitionFormula(inputEl, resultEl); return; }
+
+  const rule = FX_EXPECTED[key];
+  if (!rule) return;
+
+  let computed;
+  try {
+    computed = evalFormulaStr(str);
+    computed = Math.abs(computed);
+  } catch(e) {
+    resultEl.className = 'formula-result err';
+    resultEl.textContent = 'Parse error: ' + e.message + ' — check your syntax';
+    inputEl.className = 'formula-field wrong';
+    return;
+  }
+
+  if (rule.type === 'period_sensitive') {
+    const correctMatch  = Math.abs(computed - rule.exp)        < rule.tol;
+    const annualMatch   = Math.abs(computed - rule.exp_annual) < rule.tol * 2;
+
+    if (correctMatch) {
+      periodApproach[key] = 'correct';
+      inputEl.className = 'formula-field correct';
+      resultEl.className = 'formula-result ok';
+      resultEl.textContent = '✓ Evaluates to $' + computed.toFixed(2) + ' — correct.';
+      fxPassed.add('fx_' + key);
+      updateProgress();
+      autoFill(key, computed);
+    } else if (annualMatch) {
+      periodApproach[key] = 'annual_aggregation';
+      inputEl.className = 'formula-field wrong';
+      resultEl.className = 'formula-result err';
+      resultEl.textContent = '✗ Evaluates to $' + computed.toFixed(2) + '. This looks like you aggregated payments into annual totals — think about whether these cash flows actually occur once a year, or more frequently.';
+    } else {
+      periodApproach[key] = 'other';
+      inputEl.className = 'formula-field wrong';
+      resultEl.className = 'formula-result err';
+      resultEl.textContent = '✗ Evaluates to $' + computed.toFixed(2) + ' — check your rate, period count, and payment amount.';
+    }
+    return;
+  }
+
+  // Fixed-answer items (upfront, equip_ret, foundation, insurance)
+  const ok = Math.abs(computed - rule.exp) < rule.tol;
+  // Insurance: also check for ordinary-annuity version (missed annuity-due)
+  const partialOk = rule.exp_partial && Math.abs(computed - rule.exp_partial) < rule.tol;
+
+  if (ok) {
+    inputEl.className = 'formula-field correct';
+    resultEl.className = 'formula-result ok';
+    resultEl.textContent = '✓ Evaluates to $' + computed.toFixed(2) + ' — correct.';
+    fxPassed.add('fx_' + key);
+    updateProgress();
+    autoFill(key, computed);
+  } else if (partialOk) {
+    inputEl.className = 'formula-field wrong';
+    resultEl.className = 'formula-result err';
+    resultEl.textContent = '✗ Evaluates to $' + computed.toFixed(2) + '. Close — but check carefully when this payment is made relative to the start of each period.';
+  } else {
+    inputEl.className = 'formula-field wrong';
+    resultEl.className = 'formula-result err';
+    resultEl.textContent = '✗ Evaluates to $' + computed.toFixed(2) + ' — check your function arguments.';
+  }
+}
+
+function autoFill(key, computed) {
+  const ansId = { b_upfront:'b_upfront', b_equip_ret:'b_equip_ret', b_insurance:'b_insurance',
+                  b_trainers:'b_trainers', b_utilities:'b_utilities',
+                  c_dol_pv:'c_dol_pv', c_foundation_pv:'c_foundation_pv' }[key];
+  if (ansId) { const el = document.getElementById(ansId); if (el && !el.value) { el.value = computed.toFixed(2); checkByKey(ansId); } }
+}
+
+function evalTuitionFormula(inputEl, resultEl) {
+  const gap = Math.abs(getEXP_npv8());
+  if (!gap) { resultEl.className='formula-result err'; resultEl.textContent='Complete Part D NPV first.'; return; }
+  const str = inputEl.value.trim();
+  let computed;
+  try { computed = Math.abs(evalFormulaStr(str.replace(/gap/gi, gap.toFixed(4)))); }
+  catch(e) { resultEl.className='formula-result err'; resultEl.textContent='Parse error: '+e.message; inputEl.className='formula-field wrong'; return; }
+  const annuity_factor = calcPV([0.08/2,12,-1]); // PV of annuity of $1
+  const expected = gap / (annuity_factor * 35);
+  const ok = Math.abs(computed - expected) < 100;
+  inputEl.className = 'formula-field ' + (ok?'correct':'wrong');
+  if (ok) {
+    resultEl.className='formula-result ok';
+    resultEl.textContent='✓ Evaluates to $'+computed.toFixed(2)+' per student — correct!';
+    fxPassed.add('fx_q2_tuition_fx'); updateProgress();
+    const el = document.getElementById('q2_tuition');
+    if (el && !el.value) { el.value = computed.toFixed(2); checkQ2('tuition'); }
+  } else {
+    resultEl.className='formula-result err';
+    resultEl.textContent='✗ Evaluates to $'+computed.toFixed(2)+' — recheck your setup.';
+  }
+}
+
+function fxEnter(e, key) { if (e.key === 'Enter') evalFormula(key); }
+
+// ══════════════════════════════════════════════════════════════
+// ANSWER CHECKERS
+// ══════════════════════════════════════════════════════════════
+
+let answerPassed = new Set();
+const TOTAL_CHECKS = 22; // 5 Part-A + 7 formula + 6 numeric B + 3 numeric C + 4 Part-D + 2 Q2 tuition/gap = 27? let's track accurately below
+
+function updateProgress() {
+  const total = fxPassed.size + answerPassed.size;
+  const pct = Math.round(total / TOTAL_CHECKS * 100);
+  document.getElementById('progress-fill').style.width = Math.min(pct,100)+'%';
+  document.getElementById('progress-label').textContent = total + ' of ' + TOTAL_CHECKS + ' checks passed';
+}
+
+function setFeedback(fbId, inputId, ok, msg) {
+  const el = document.getElementById(fbId); if (!el) return;
+  el.className = 'feedback-box show ' + (ok ? 'correct' : 'wrong');
+  el.textContent = msg;
+  const inp = document.getElementById(inputId);
+  if (inp) inp.className = ok ? 'correct' : 'wrong';
+  if (ok) { answerPassed.add(fbId); updateProgress(); }
+}
+
+// Part A
+const A_RULES = {
+  months:     { check: v=>v===72, ok:'✓ 6 years × 12 months = 72 monthly periods.', bad:'Think: 6 years × 12 months/year = ?' },
+  cohorts:    { check: v=>v===12, ok:'✓ 2 cohorts/year × 6 years = 12 cohorts.', bad:'A new cohort starts every 6 months — that is 2 per year for 6 years.' },
+  grads:      { check: v=>v===420, ok:'✓ 35 students × 12 cohorts = 420 graduates.', bad:'Multiply cohort size (35) by number of cohorts.' },
+  trainer_mo: { check: v=>Math.abs(v-1600*1.0765)<5, ok:()=>`✓ $1,600 × 1.0765 = $${(1600*1.0765).toFixed(2)}/month (salary + 7.65% tax).`, bad:'Add 7.65% payroll tax to the $1,600/month salary. Multiply 1600 × 1.0765.' },
+  dol_cohort: { check: v=>Math.abs(v-52500)<5, ok:'✓ 35 graduates × $1,500 = $52,500 per cohort.', bad:'Multiply cohort size (35) by the per-graduate payment ($1,500).' }
+};
+function checkA(key) {
+  const inp = document.getElementById('a_'+key); if (!inp.value) return;
+  const v = parseFloat(inp.value);
+  const r = A_RULES[key]; const ok = r.check(v);
+  const msg = ok?(typeof r.ok==='function'?r.ok():r.ok):r.bad;
+  setFeedback('fb_a_'+key,'a_'+key,ok,msg);
+}
+
+// Part B numeric answers
+function pvS(fv,r,n){return fv/Math.pow(1+r,n);}
+function pvAnn(pmt,r,n){return pmt*(1-Math.pow(1+r,-n))/r;}
+function pvAnnDue(pmt,r,n){return pvAnn(pmt,r,n)*(1+r);}
+
+const EXP_b_upfront     = 290000;
+const EXP_b_equip_ret   = pvS(45000,0.08,6);
+const EXP_b_insurance   = pvAnnDue(10000,0.08,6);
+const EXP_b_trainers    = pvAnn(1600*1.0765,0.08/12,72);
+const EXP_b_utilities   = pvAnn(2000,0.08/12,72);
+const EXP_b_total_costs = EXP_b_upfront+EXP_b_equip_ret+EXP_b_insurance+EXP_b_trainers+EXP_b_utilities;
+
+const B_RULES = {
+  upfront:     {exp:EXP_b_upfront,    tol:50,  ok:`✓ $290,000. Year-0 items don't need discounting.`,                                          bad:`Two Year-0 items: renovation ($250K) + equipment shipping ($40K). PV = face value.`},
+  equip_ret:   {exp:EXP_b_equip_ret,  tol:100, ok:()=>`✓ $${EXP_b_equip_ret.toFixed(0)}. Use =PV(8%,6,0,-45000).`,                            bad:`Single lump sum at end of Year 6. Formula: =PV(8%, 6, 0, -45000).`},
+  insurance:   {exp:EXP_b_insurance,  tol:150, ok:()=>`✓ $${EXP_b_insurance.toFixed(0)}. Annuity due of $10,000/yr × 6 yrs at 8%.`,           bad:`Insurance paid at START of year = annuity due. Use =PV(8%,6,-10000,0,1) or multiply ordinary annuity PV × 1.08.`},
+  trainers:    {exp:EXP_b_trainers,   tol:400, ok:()=>`✓ $${EXP_b_trainers.toFixed(0)}. =PV(8%/12, 72, -${(1600*1.0765).toFixed(2)}).`,       bad:`72-month ordinary annuity at 8%/12. Monthly payment = $1,600 × 1.0765.`},
+  utilities:   {exp:EXP_b_utilities,  tol:300, ok:()=>`✓ $${EXP_b_utilities.toFixed(0)}. =PV(8%/12, 72, -2000).`,                             bad:`72-month ordinary annuity at 8%/12 for the $2,000/month OUFE increment.`},
+  total_costs: {exp:EXP_b_total_costs,tol:800, ok:()=>`✓ Total PV costs = $${EXP_b_total_costs.toFixed(0)}.`,                                  bad:`Sum all five PV cost items. Check each one individually first.`}
+};
+function checkB(key) {
+  const inp = document.getElementById('b_'+key); if (!inp.value) return;
+  const v = parseFloat(inp.value); const r = B_RULES[key];
+  const ok = Math.abs(v-r.exp)<r.tol;
+  const msg = ok?(typeof r.ok==='function'?r.ok():r.ok):r.bad;
+  setFeedback('fb_b_'+key,'b_'+key,ok,msg);
+}
+
+// Part C numeric answers
+const EXP_c_dol_pv        = pvAnn(52500,0.08/2,12);
+const EXP_c_dol_pv_exact  = pvAnn(52500,Math.pow(1.08,0.5)-1,12);
+const EXP_c_found_pv      = pvS(35000,0.08,3);
+const EXP_c_total_rev     = EXP_c_dol_pv + EXP_c_found_pv;
+const EXP_c_total_rev_ex  = EXP_c_dol_pv_exact + EXP_c_found_pv;
+
+const C_RULES = {
+  dol_pv:       {check:v=>Math.abs(v-EXP_c_dol_pv)<900||Math.abs(v-EXP_c_dol_pv_exact)<900,
+                 ok:()=>`✓ $${EXP_c_dol_pv.toFixed(0)}. =PV(8%/2, 12, -52500).`,
+                 bad:`12 semi-annual payments of $52,500 at 4% (= 8%/2). Formula: =PV(8%/2, 12, -52500).`},
+  foundation_pv:{check:v=>Math.abs(v-EXP_c_found_pv)<100,
+                 ok:()=>`✓ $${EXP_c_found_pv.toFixed(0)}. =PV(8%, 3, 0, -35000).`,
+                 bad:`Single lump sum at end of Year 3. Formula: =PV(8%, 3, 0, -35000) or =35000/1.08^3.`},
+  total_rev:    {check:v=>Math.abs(v-EXP_c_total_rev)<1000||Math.abs(v-EXP_c_total_rev_ex)<1000,
+                 ok:()=>`✓ Total PV revenues = $${EXP_c_total_rev.toFixed(0)}.`,
+                 bad:`Add PV of DOL payments and PV of foundation grant.`}
+};
+function checkC(key) {
+  const inp = document.getElementById('c_'+key); if (!inp.value) return;
+  const v = parseFloat(inp.value); const r = C_RULES[key];
+  const ok = r.check(v);
+  const msg = ok?(typeof r.ok==='function'?r.ok():r.ok):r.bad;
+  setFeedback('fb_c_'+key,'c_'+key,ok,msg);
+}
+
+// Helper to get current NPV8 expected value based on computed components
+function getEXP_npv8() { return EXP_c_total_rev - EXP_b_total_costs; }
+
+// Part D
+const EXP_npv8      = EXP_c_total_rev - EXP_b_total_costs;
+const EXP_npv8_ex   = EXP_c_total_rev_ex - EXP_b_total_costs;
+const costs6        = 290000+pvS(45000,0.06,6)+pvAnnDue(10000,0.06,6)+pvAnn(1600*1.0765,0.06/12,72)+pvAnn(2000,0.06/12,72);
+const EXP_npv6      = (pvAnn(52500,0.06/2,12)+pvS(35000,0.06,3)) - costs6;
+const EXP_npv6_ex   = (pvAnn(52500,Math.pow(1.06,0.5)-1,12)+pvS(35000,0.06,3)) - costs6;
+
+function checkD(key) {
+  if (key==='npv8') {
+    const v = parseFloat(document.getElementById('d_npv8').value);
+    if (!document.getElementById('d_npv8').value) return;
+    const ok = Math.abs(v-EXP_npv8)<2500||Math.abs(v-EXP_npv8_ex)<2500;
+    setFeedback('fb_d_npv8','d_npv8',ok,ok?`✓ NPV at 8% ≈ $${EXP_npv8.toFixed(0)}. ${EXP_npv8<0?'Deficit — program needs modification.':'Surplus — board should approve.'}`:'NPV = Total PV Revenues − Total PV Costs. Sum your Part B and C results.');
+  } else if (key==='selfsuff') {
+    const v = document.getElementById('d_selfsuff').value; if (!v) return;
+    const ok = v==='no';
+    setFeedback('fb_d_selfsuff','d_selfsuff',ok,ok?'✓ Correct — the program runs a deficit at 8%.':'Review your NPV. A negative NPV means deficit.');
+  } else if (key==='npv6') {
+    const v = parseFloat(document.getElementById('d_npv6').value);
+    if (!document.getElementById('d_npv6').value) return;
+    const ok = Math.abs(v-EXP_npv6)<2500||Math.abs(v-EXP_npv6_ex)<2500;
+    setFeedback('fb_d_npv6','d_npv6',ok,ok?`✓ NPV at 6% ≈ $${EXP_npv6.toFixed(0)}.`:'Redo with 6%/12 monthly, 6%/2 semi-annual, 6% annual throughout.');
+  } else if (key==='rate_effect') {
+    const v = document.getElementById('d_rate_effect').value; if (!v) return;
+    const ok = v==='better';
+    setFeedback('fb_d_rate_effect','d_rate_effect',ok,ok?'✓ Correct — a lower rate raises the PV of all future cash flows. Revenues are further out in time than the upfront costs, so they benefit more, improving NPV.':'Think: what does a lower rate do to the PV of future receipts vs. Year-0 costs?');
+  }
+}
+
+// Q2
+function checkQ2(key) {
+  const gap = Math.abs(EXP_npv8);
+  if (key==='gap') {
+    const v = parseFloat(document.getElementById('q2_gap').value); if (!document.getElementById('q2_gap').value) return;
+    const ok = Math.abs(v-gap)<2500||Math.abs(v-Math.abs(EXP_npv8_ex))<2500;
+    setFeedback('fb_q2_gap','q2_gap',ok,ok?`✓ Gap = $${gap.toFixed(0)}.`:'The gap equals |NPV at 8%|. If NPV = −$X, you need $X more PV revenue or less PV cost.');
+  } else if (key==='tuition') {
+    const v = parseFloat(document.getElementById('q2_tuition').value); if (!document.getElementById('q2_tuition').value) return;
+    const af = calcPV([0.08/2,12,-1]);
+    const expected = gap/(af*35);
+    const ok = Math.abs(v-expected)<100;
+    setFeedback('fb_q2_tuition','q2_tuition',ok,ok?`✓ ≈$${expected.toFixed(0)}/student. The PV of all tuition collected at graduation (=PV(8%/2,12,-tuition×35)) equals the gap.`:'Tuition collected at graduation uses =PV(8%/2,12,-tuition×35) = gap. Solve for tuition per student.');
+  }
+}
+
+// Helper to map answer-field IDs to checker functions
+function checkByKey(id) {
+  if (id.startsWith('a_')) checkA(id.slice(2));
+  else if (id.startsWith('b_')) checkB(id.slice(2));
+  else if (id.startsWith('c_')) checkC(id.slice(2));
+}
+
+// ══ Tab switching ══
+function switchTab(id,btn) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ══ AI Tutor ══
+const HINT_CONTEXTS = {
+  tvom:'Student needs to understand why future cash flows are discounted. Program has costs today (renovation, equipment) and revenues spread over 6 years. Key concept: the 8% rate represents the opportunity cost — money received later is worth less today.',
+  periods:'The student needs to figure out the right period and rate for each cash flow. Key principle: the rate must match the payment period. Guide them to ask: how often does this cash flow actually occur? Monthly costs occur 12 times per year, not once. The common mistake is to multiply monthly costs by 12 and treat them as a single annual payment — this is incorrect because each monthly payment occurs earlier in the year than year-end and therefore has a higher PV. Ask them: if a cost is paid monthly, should your PV formula use annual periods and an annual rate, or should it use a period that matches when cash actually changes hands?',
+  pv_syntax:'Student needs help with Excel PV function syntax. =PV(rate, nper, pmt, [fv], [type]). Enter pmt as negative for cash outflows — Excel returns PV as positive. For lump sums use fv argument: =PV(8%,6,0,-45000). For annuity due set type=1: =PV(8%,6,-10000,0,1).',
+  insurance:'Insurance is $10,000/year paid at START of each year — annuity due. Use type=1 in Excel: =PV(8%,6,-10000,0,1). Or compute ordinary annuity PV and multiply by (1+0.08).',
+  dol:'DOL pays $1,500 per graduate at graduation. Cohorts of 35 graduate every 6 months, so OUFE receives $52,500 every 6-month period for 12 periods. Semi-annual rate = 8%/2 = 4%. Excel formula: =PV(8%/2, 12, -52500).',
+  npv:'NPV = sum of PV revenues minus sum of PV costs. Negative NPV = deficit; the magnitude tells you exactly how much more PV revenue (or less PV cost) is needed to break even. For Q2, that gap is the target to close.'
+};
+
+async function getHint(topic) {
+  const area = document.getElementById('hint-area');
+  area.className='hint-area show'; area.innerHTML='<span class="thinking">thinking...</span>';
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      model:'claude-sonnet-4-6',max_tokens:1000,
+      system:'You are a Socratic tutor for a graduate nonprofit financial management course. The student is working on an Excel assignment using PV functions to evaluate whether a job training program is financially self-sufficient. Guide them conceptually without giving numerical answers. Ask leading questions that point to the right formula or reasoning. 4-5 sentences.',
+      messages:[{role:'user',content:`Student needs a hint on: ${topic}. Context: ${HINT_CONTEXTS[topic]||''}. Give a Socratic hint only — no numerical answers.`}]
+    })});
+    const data = await resp.json();
+    area.innerHTML=(data.content?.map(b=>b.text||'').join('')||'Hint unavailable.').replace(/\n/g,'<br>');
+  } catch(e){area.innerHTML='Could not reach AI tutor. Try again.';}
+}
+
+async function askCustom() {
+  const q = document.getElementById('custom-q').value.trim(); if(!q) return;
+  const area = document.getElementById('custom-hint-area');
+  area.className='hint-area show'; area.innerHTML='<span class="thinking">thinking...</span>';
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      model:'claude-sonnet-4-6',max_tokens:1000,
+      system:`You are a Socratic tutor for PMAP 8261 (Nonprofit Financial Management). Student is doing an Excel NPV assignment on the OUFE job training program. Rate convention: monthly=8%/12, semi-annual=8%/2, annual=8%. Excel PV syntax: =PV(rate,nper,pmt,[fv],[type]). Students must type actual Excel formulas. Never give numerical answers directly. Guide with Socratic questions and formula hints. 4-6 sentences.`,
+      messages:[{role:'user',content:q}]
+    })});
+    const data = await resp.json();
+    area.innerHTML=(data.content?.map(b=>b.text||'').join('')||'No response.').replace(/\n/g,'<br>');
+  } catch(e){area.innerHTML='Could not reach AI tutor.';}
+}
+
+// ══════════════════════════════════════════════════════════════
+// SUBMISSION & AI GRADING
+// ══════════════════════════════════════════════════════════════
+
+function collectWork() {
+  // Returns a structured snapshot of everything the student entered
+  const g = id => (document.getElementById(id)||{}).value || '';
+  const fxVal = id => (document.getElementById('fx_'+id)||{}).value || '';
+  const fxOk  = id => (document.getElementById('fx_'+id)||{}).classList.contains('correct');
+  const ansOk = id => (document.getElementById(id)||{}).classList.contains('correct');
+
+  return {
+    // Part A
+    a_months:     { ans: g('a_months'),     ok: ansOk('a_months') },
+    a_cohorts:    { ans: g('a_cohorts'),    ok: ansOk('a_cohorts') },
+    a_grads:      { ans: g('a_grads'),      ok: ansOk('a_grads') },
+    a_trainer_mo: { ans: g('a_trainer_mo'), ok: ansOk('a_trainer_mo') },
+    a_dol_cohort: { ans: g('a_dol_cohort'), ok: ansOk('a_dol_cohort') },
+    // Part B — formulas + answers
+    b_upfront:     { fx: fxVal('b_upfront'),     fxOk: fxOk('b_upfront'),     ans: g('b_upfront'),     ansOk: ansOk('b_upfront') },
+    b_equip_ret:   { fx: fxVal('b_equip_ret'),   fxOk: fxOk('b_equip_ret'),   ans: g('b_equip_ret'),   ansOk: ansOk('b_equip_ret') },
+    b_insurance:   { fx: fxVal('b_insurance'),   fxOk: fxOk('b_insurance'),   ans: g('b_insurance'),   ansOk: ansOk('b_insurance') },
+    b_trainers:    { fx: fxVal('b_trainers'),    fxOk: fxOk('b_trainers'),    ans: g('b_trainers'),    ansOk: ansOk('b_trainers') },
+    b_utilities:   { fx: fxVal('b_utilities'),   fxOk: fxOk('b_utilities'),   ans: g('b_utilities'),   ansOk: ansOk('b_utilities') },
+    b_total_costs: { ans: g('b_total_costs'), ok: ansOk('b_total_costs') },
+    // Part C
+    c_dol_pv:        { fx: fxVal('c_dol_pv'),        fxOk: fxOk('c_dol_pv'),        ans: g('c_dol_pv'),        ansOk: ansOk('c_dol_pv') },
+    c_foundation_pv: { fx: fxVal('c_foundation_pv'), fxOk: fxOk('c_foundation_pv'), ans: g('c_foundation_pv'), ansOk: ansOk('c_foundation_pv') },
+    c_total_rev:     { ans: g('c_total_rev'), ok: ansOk('c_total_rev') },
+    // Part D
+    d_npv8:       { ans: g('d_npv8'),       ok: ansOk('d_npv8') },
+    d_selfsuff:   { ans: g('d_selfsuff'),   ok: ansOk('d_selfsuff') },
+    d_npv6:       { ans: g('d_npv6'),       ok: ansOk('d_npv6') },
+    d_rate_effect:{ ans: g('d_rate_effect'),ok: ansOk('d_rate_effect') },
+    // Q2
+    q2_gap:     { ans: g('q2_gap'),     ok: ansOk('q2_gap') },
+    q2_tuition: { fx: fxVal('q2_tuition_fx'), fxOk: fxOk('q2_tuition_fx'), ans: g('q2_tuition'), ansOk: ansOk('q2_tuition') },
+  };
+}
+
+function buildWorkTable(work) {
+  const rows = [
+    // label, fx key (or null), ans key, has-formula
+    ['Months (A)',              null,              'a_months',      false],
+    ['Cohorts (A)',             null,              'a_cohorts',     false],
+    ['Graduates (A)',           null,              'a_grads',       false],
+    ['Monthly trainer cost (A)',null,              'a_trainer_mo',  false],
+    ['DOL per cohort (A)',      null,              'a_dol_cohort',  false],
+    ['PV upfront costs (B1)',   'b_upfront',       'b_upfront',     true],
+    ['PV equip return (B2)',    'b_equip_ret',     'b_equip_ret',   true],
+    ['PV insurance (B3)',       'b_insurance',     'b_insurance',   true],
+    ['PV trainers (B4)',        'b_trainers',      'b_trainers',    true],
+    ['PV utilities (B5)',       'b_utilities',     'b_utilities',   true],
+    ['Total PV costs (B)',      null,              'b_total_costs', false],
+    ['PV DOL revenue (C1)',     'c_dol_pv',        'c_dol_pv',      true],
+    ['PV foundation (C2)',      'c_foundation_pv', 'c_foundation_pv',true],
+    ['Total PV revenues (C)',   null,              'c_total_rev',   false],
+    ['NPV at 8% (D)',           null,              'd_npv8',        false],
+    ['Self-sufficient? (D)',    null,              'd_selfsuff',    false],
+    ['NPV at 6% (D)',           null,              'd_npv6',        false],
+    ['Rate effect (D)',         null,              'd_rate_effect', false],
+    ['PV gap (Q2)',             null,              'q2_gap',        false],
+    ['Tuition per student (Q2)','q2_tuition',      'q2_tuition',    true],
+  ];
+
+  const tbody = document.getElementById('work-tbody');
+  tbody.innerHTML = '';
+  rows.forEach(([label, fxKey, ansKey, hasFx]) => {
+    const w = work[ansKey] || {};
+    const fxEntered = fxKey ? (work[fxKey]||{}).fx || '' : '';
+    const fxCorrect = fxKey ? (work[fxKey]||{}).fxOk : null;
+    const ansEntered = w.ans || w.ans === 0 ? w.ans : '';
+    const ansCorrect = w.ok !== undefined ? w.ok : w.ansOk;
+    const tick = s => `<span class="${s==='✓'?'tick':'cross'}">${s}</span>`;
+    const dash = `<span class="dash">—</span>`;
+    tbody.insertAdjacentHTML('beforeend',
+      `<tr>
+        <td>${label}</td>
+        <td style="max-width:180px;word-break:break-all;">${fxEntered ? '='+fxEntered : dash}</td>
+        <td>${hasFx ? (fxCorrect ? tick('✓') : (fxEntered ? tick('✗') : dash)) : dash}</td>
+        <td>${ansEntered !== '' ? ansEntered : dash}</td>
+        <td>${ansEntered !== '' ? (ansCorrect ? tick('✓') : tick('✗')) : dash}</td>
+      </tr>`
+    );
+  });
+}
+
+async function submitAssignment() {
+  const name = document.getElementById('student-name').value.trim();
+  if (!name) { document.getElementById('submit-status').textContent = 'Please enter your name first.'; return; }
+
+  const btn = document.getElementById('submit-btn');
+  const status = document.getElementById('submit-status');
+  btn.disabled = true;
+  status.textContent = 'Collecting your work…';
+
+  const work = collectWork();
+  const timestamp = new Date().toLocaleString('en-US', {dateStyle:'medium', timeStyle:'short'});
+
+  // Populate meta and work table immediately
+  document.getElementById('rpt-meta').textContent = `${name} · Submitted ${timestamp} · PMAP 8261 Fall 2025`;
+  buildWorkTable(work);
+  document.getElementById('report-overlay').classList.add('show');
+  document.getElementById('score-summary').textContent = 'Analyzing work…';
+  document.getElementById('score-circle').textContent = '…';
+  document.getElementById('score-circle').className = 'score-circle';
+  document.getElementById('rpt-sections').innerHTML = '';
+  status.textContent = 'Generating grading report…';
+
+  // Build prompt for Claude
+  const workSummary = buildGradingPrompt(name, work);
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1500,
+        system: `You are a grading assistant for PMAP 8261, a graduate nonprofit financial management course taught by Professor Ross at Georgia State University. You are reviewing a student's Excel assignment on time value of money applied to the OUFE job training program NPV analysis.
+
+GRADING RUBRIC (5-point scale):
+- 5 points: All or nearly all formulas correct, AND the student correctly used sub-annual periods for monthly and semi-annual cash flows (monthly rate for trainer/utility costs, semi-annual rate for DOL payments). Minor rounding or sign errors are fine at this level.
+- 4.5 points: Clear good-faith effort, mostly correct. May have one meaningful error — e.g., missed the annuity-due adjustment on insurance, or had the right period approach but a small arithmetic mistake — but period handling is correct for recurring costs.
+- 4 points: Substantial effort with correct approach in most sections, BUT committed the annual-aggregation error on monthly costs (e.g., multiplied monthly trainer cost × 12 and discounted as a single annual payment). This is the key conceptual mistake in this assignment. Also award 4 if there are multiple smaller errors beyond just period handling.
+- Below 4: Limited effort, multiple sections blank, or no evidence of understanding how to apply PV functions to different cash flow timings.
+
+The most important distinction for scoring is whether the student correctly identified that monthly costs should be discounted as monthly annuities (using a monthly rate and 72 periods) versus incorrectly aggregating them into annual sums. Students who get this right should score higher than those who do not, even if other parts of their work are similar.
+
+You must respond in valid JSON only, with this exact structure:
+{
+  "suggested_score": 4.5,
+  "score_class": "four5",
+  "summary": "One or two sentence overall assessment.",
+  "period_handling": "correct_monthly | annual_aggregation | mixed | unclear",
+  "sections": [
+    { "name": "Part A — Program Structure", "status": "full", "comment": "..." },
+    { "name": "Part B — PV of Costs", "status": "partial", "comment": "..." },
+    { "name": "Part C — PV of Revenues", "status": "full", "comment": "..." },
+    { "name": "Part D — NPV & Sensitivity", "status": "missing", "comment": "..." },
+    { "name": "Q2 — Self-Sufficiency Recommendation", "status": "partial", "comment": "..." }
+  ]
+}
+
+score_class must be one of: "five", "four5", "four", "low"
+status must be one of: "full" (correct), "partial" (attempted with errors), "missing" (blank or not attempted)
+Be specific and constructive — reference the student's actual formulas and note exactly what period approach they used for recurring costs.`,
+        messages: [{ role: 'user', content: workSummary }]
+      })
+    });
+
+    const data = await resp.json();
+    const raw = data.content?.map(b => b.text || '').join('') || '';
+    let result;
+    try {
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      result = JSON.parse(jsonMatch ? jsonMatch[0] : raw);
+    } catch(e) {
+      throw new Error('Could not parse grading response.');
+    }
+
+    // Render score
+    const scoreEl = document.getElementById('score-circle');
+    scoreEl.textContent = result.suggested_score;
+    scoreEl.className = 'score-circle ' + (result.score_class || 'four');
+    document.getElementById('score-summary').textContent = result.summary || '';
+
+    // Show period handling finding prominently
+    const phMap = {
+      correct_monthly:    { label: '✓ Monthly/semi-annual periods used correctly', color: 'var(--accent)' },
+      annual_aggregation: { label: '⚠ Annual aggregation detected — key conceptual error', color: 'var(--warn)' },
+      mixed:              { label: '~ Mixed period approach — correct for some items, aggregated for others', color: 'var(--gold)' },
+      unclear:            { label: 'Period approach unclear from formulas submitted', color: '#888' }
+    };
+    if (result.period_handling && phMap[result.period_handling]) {
+      const ph = phMap[result.period_handling];
+      document.getElementById('score-summary').insertAdjacentHTML('afterend',
+        `<div style="margin-top:0.6rem;font-family:var(--mono);font-size:0.72rem;color:${ph.color};font-weight:600;">${ph.label}</div>`);
+    }
+
+    // Set default override to match AI suggestion
+    document.getElementById('final-score').value = String(result.suggested_score);
+
+    // Render section breakdown
+    const sectionsEl = document.getElementById('rpt-sections');
+    sectionsEl.innerHTML = '';
+    (result.sections || []).forEach(s => {
+      sectionsEl.insertAdjacentHTML('beforeend', `
+        <div class="rpt-section">
+          <div class="rpt-section-head">
+            <span class="rpt-section-name">${s.name}</span>
+            <span class="rpt-section-status ${s.status}">${s.status === 'full' ? '✓ Complete' : s.status === 'partial' ? '~ Partial' : '✗ Not attempted'}</span>
+          </div>
+          <div class="rpt-section-body">${s.comment}</div>
+        </div>`);
+    });
+
+    status.textContent = 'Report ready.';
+    btn.disabled = false;
+
+  } catch(e) {
+    document.getElementById('score-summary').textContent = 'Could not generate AI report — please try again. (' + e.message + ')';
+    status.textContent = 'Error. Try again.';
+    btn.disabled = false;
+  }
+}
+
+function buildGradingPrompt(name, work) {
+  const f = (obj, key) => {
+    const w = obj[key];
+    if (!w) return 'not entered';
+    const ans = w.ans !== undefined ? w.ans : '';
+    const ok = w.ok !== undefined ? w.ok : w.ansOk;
+    return `${ans || '(blank)'} [${ok ? 'CORRECT' : 'INCORRECT'}]`;
+  };
+  const fx = (obj, key) => {
+    const w = obj[key];
+    if (!w) return 'not entered';
+    return `formula: "${w.fx || '(blank)'}" [${w.fxOk ? 'CORRECT' : 'INCORRECT'}], value: ${w.ans || '(blank)'} [${w.ansOk ? 'CORRECT' : 'INCORRECT'}]`;
+  };
+
+  // Period approach summary for the three key recurring cash flows
+  const trainerApproach  = periodApproach['b_trainers']  || 'not checked';
+  const utilityApproach  = periodApproach['b_utilities']  || 'not checked';
+  const dolApproach      = periodApproach['c_dol_pv']     || 'not checked';
+
+  const periodSummary = `
+PERIOD HANDLING (key grading criterion):
+- Trainer costs: student used ${trainerApproach === 'correct' ? 'CORRECT monthly annuity approach (rate=8%/12, nper=72)' : trainerApproach === 'annual_aggregation' ? 'INCORRECT annual aggregation (summed 12 months, discounted annually)' : 'approach unclear or formula not submitted'}
+- Utility costs: student used ${utilityApproach === 'correct' ? 'CORRECT monthly annuity approach' : utilityApproach === 'annual_aggregation' ? 'INCORRECT annual aggregation' : 'approach unclear or formula not submitted'}
+- DOL revenue: student used ${dolApproach === 'correct' ? 'CORRECT semi-annual annuity approach (rate=8%/2, nper=12)' : dolApproach === 'annual_aggregation' ? 'INCORRECT annual aggregation (summed 2 cohorts per year, discounted annually)' : 'approach unclear or formula not submitted'}
+`;
+
+  return `Grade this OUFE assignment for student: ${name}
+
+${periodSummary}
+PART A — Program structure:
+- Months: ${f(work,'a_months')} (correct = 72)
+- Cohorts: ${f(work,'a_cohorts')} (correct = 12)
+- Graduates: ${f(work,'a_grads')} (correct = 420)
+- Monthly trainer cost incl. taxes: ${f(work,'a_trainer_mo')} (correct = $1,722.40)
+- DOL payment per cohort: ${f(work,'a_dol_cohort')} (correct = $52,500)
+
+PART B — PV of costs at 8%:
+- B1 PV upfront: ${fx(work,'b_upfront')} (correct = $290,000)
+- B2 PV equip return: ${fx(work,'b_equip_ret')} (correct ~$28,441)
+- B3 PV insurance: ${fx(work,'b_insurance')} (correct ~$46,229 annuity-due; ordinary annuity would be ~$42,804)
+- B4 PV trainers: ${fx(work,'b_trainers')} (correct monthly ~$107,254; annual aggregation gives ~$100,702 — different)
+- B5 PV utilities: ${fx(work,'b_utilities')} (correct monthly ~$124,648; annual aggregation gives ~$116,978 — different)
+- Total PV costs: ${f(work,'b_total_costs')}
+
+PART C — PV of revenues at 8%:
+- C1 PV DOL: ${fx(work,'c_dol_pv')} (correct semi-annual ~$495,163; annual aggregation gives ~$477,154 — different)
+- C2 PV foundation: ${fx(work,'c_foundation_pv')} (correct ~$27,783)
+- Total PV revenues: ${f(work,'c_total_rev')}
+
+PART D — NPV:
+- NPV at 8%: ${f(work,'d_npv8')} (program runs a deficit under any correct approach)
+- Self-sufficient?: ${f(work,'d_selfsuff')} (correct = No)
+- NPV at 6%: ${f(work,'d_npv6')} (should be less negative than 8% result)
+- Rate effect: ${f(work,'d_rate_effect')} (correct = NPV improves at lower rate)
+
+Q2 — Recommendation:
+- Gap to close: ${f(work,'q2_gap')}
+- Tuition per student: ${fx(work,'q2_tuition')}
+
+Please evaluate effort, formula correctness, and especially period handling. Return JSON per the system prompt.`;
+}
+
+function closeReport() {
+  document.getElementById('report-overlay').classList.remove('show');
+}
+
+// ── Password gate ──
+// Password is hashed so it isn't readable as plain text in the source.
+// SHA-256 of "OUFE2026"
+const PW_HASH = '8df8f0350d1c38aa9f73828eb2182ede66a402b2692506061de1715b27fdf3d0';
+
+async function hashString(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function checkPassword() {
+  const input = document.getElementById('pw-input').value;
+  const hash = await hashString(input);
+  if (hash === PW_HASH) {
+    document.getElementById('pw-gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    // Persist for the session so reload doesn't re-prompt
+    sessionStorage.setItem('oufe_auth', '1');
+  } else {
+    const err = document.getElementById('pw-error');
+    err.textContent = 'Incorrect password — try again.';
+    document.getElementById('pw-input').value = '';
+    document.getElementById('pw-input').focus();
+  }
+}
+
+// Skip gate if already authenticated this session
+if (sessionStorage.getItem('oufe_auth') === '1') {
+  document.getElementById('pw-gate').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+}
+</script>
+
+</div><!-- /#app -->
+</body>
+</html>
