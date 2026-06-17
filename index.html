@@ -697,7 +697,7 @@ semi-annual rate = annual rate / 2,  nper = total 6-mo periods</div>
 // ══════════════════════════════════════════════════════════════
 // GOOGLE SHEET ENDPOINT — paste your Apps Script URL here after setup
 // ══════════════════════════════════════════════════════════════
-const SHEET_URL = 'https://script.google.com/macros/s/AKfycbw8610H1FWwbdQBwO1eiwGMv61RVen53Zq8jMBjqXv6_Ny_cgFX92r8OhalSUfu6dtVJw/exec';
+const SHEET_URL = 'PASTE_YOUR_APPS_SCRIPT_URL_HERE';
 
 // ══════════════════════════════════════════════════════════════
 // FORMULA EVALUATOR
@@ -1115,18 +1115,33 @@ const HINT_CONTEXTS = {
   npv:'NPV = sum of PV revenues minus sum of PV costs. Negative NPV = deficit; the magnitude tells you exactly how much more PV revenue (or less PV cost) is needed to break even. For Q2, that gap is the target to close.'
 };
 
+// All Claude API calls go through the Apps Script proxy so the API key
+// never appears in this file. The proxy accepts { action, payload } and
+// returns { text } or { error }.
+async function claudeViaProxy(action, payload) {
+  if (!SHEET_URL || SHEET_URL === 'PASTE_YOUR_APPS_SCRIPT_URL_HERE') {
+    throw new Error('Apps Script URL not configured.');
+  }
+  const resp = await fetch(SHEET_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, ...payload })
+  });
+  const data = await resp.json();
+  if (data.error) throw new Error(data.error);
+  return data.text || '';
+}
+
 async function getHint(topic) {
   const area = document.getElementById('hint-area');
   area.className='hint-area show'; area.innerHTML='<span class="thinking">thinking...</span>';
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      model:'claude-sonnet-4-6',max_tokens:1000,
-      system:'You are a Socratic tutor for a graduate nonprofit financial management course. The student is working on an Excel assignment using PV functions to evaluate whether a job training program is financially self-sufficient. Guide them conceptually without giving numerical answers. Ask leading questions that point to the right formula or reasoning. 4-5 sentences.',
-      messages:[{role:'user',content:`Student needs a hint on: ${topic}. Context: ${HINT_CONTEXTS[topic]||''}. Give a Socratic hint only — no numerical answers.`}]
-    })});
-    const data = await resp.json();
-    area.innerHTML=(data.content?.map(b=>b.text||'').join('')||'Hint unavailable.').replace(/\n/g,'<br>');
-  } catch(e){area.innerHTML='Could not reach AI tutor. Try again.';}
+    const text = await claudeViaProxy('hint', {
+      system: 'You are a Socratic tutor for a graduate nonprofit financial management course. The student is working on an Excel assignment using PV functions to evaluate whether a job training program is financially self-sufficient. Guide them conceptually without giving numerical answers. Ask leading questions that point to the right formula or reasoning. 4-5 sentences.',
+      message: `Student needs a hint on: ${topic}. Context: ${HINT_CONTEXTS[topic]||''}. Give a Socratic hint only — no numerical answers.`
+    });
+    area.innerHTML = text.replace(/\n/g,'<br>');
+  } catch(e) { area.innerHTML='Could not reach AI tutor — please try again.'; }
 }
 
 async function askCustom() {
@@ -1134,14 +1149,12 @@ async function askCustom() {
   const area = document.getElementById('custom-hint-area');
   area.className='hint-area show'; area.innerHTML='<span class="thinking">thinking...</span>';
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      model:'claude-sonnet-4-6',max_tokens:1000,
-      system:`You are a Socratic tutor for PMAP 8261 (Nonprofit Financial Management). Student is doing an Excel NPV assignment on the OUFE job training program. Rate convention: monthly=8%/12, semi-annual=8%/2, annual=8%. Excel PV syntax: =PV(rate,nper,pmt,[fv],[type]). Students must type actual Excel formulas. Never give numerical answers directly. Guide with Socratic questions and formula hints. 4-6 sentences.`,
-      messages:[{role:'user',content:q}]
-    })});
-    const data = await resp.json();
-    area.innerHTML=(data.content?.map(b=>b.text||'').join('')||'No response.').replace(/\n/g,'<br>');
-  } catch(e){area.innerHTML='Could not reach AI tutor.';}
+    const text = await claudeViaProxy('hint', {
+      system: 'You are a Socratic tutor for PMAP 8261 (Nonprofit Financial Management). Student is doing an Excel NPV assignment on the OUFE job training program. Rate convention: monthly=8%/12, semi-annual=8%/2, annual=8%. Excel PV syntax: =PV(rate,nper,pmt,[fv],[type]). Students must type actual Excel formulas. Never give numerical answers directly. Guide with Socratic questions and formula hints. 4-6 sentences.',
+      message: q
+    });
+    area.innerHTML = text.replace(/\n/g,'<br>');
+  } catch(e) { area.innerHTML='Could not reach AI tutor — please try again.'; }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1257,13 +1270,8 @@ async function submitAssignment() {
   const workSummary = buildGradingPrompt(name, work);
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1500,
-        system: `You are a grading assistant for PMAP 8261, a graduate nonprofit financial management course taught by Professor Ross at Georgia State University. You are reviewing a student's Excel assignment on time value of money applied to the OUFE job training program NPV analysis.
+    const raw = await claudeViaProxy('grade', {
+      system: `You are a grading assistant for PMAP 8261, a graduate nonprofit financial management course taught by Professor Ross at Georgia State University. You are reviewing a student's Excel assignment on time value of money applied to the OUFE job training program NPV analysis.
 
 GRADING RUBRIC (5-point scale):
 - 5 points: All or nearly all formulas correct, AND the student correctly used sub-annual periods for monthly and semi-annual cash flows (monthly rate for trainer/utility costs, semi-annual rate for DOL payments). Minor rounding or sign errors are fine at this level.
@@ -1291,12 +1299,9 @@ You must respond in valid JSON only, with this exact structure:
 score_class must be one of: "five", "four5", "four", "low"
 status must be one of: "full" (correct), "partial" (attempted with errors), "missing" (blank or not attempted)
 Be specific and constructive — reference the student's actual formulas and note exactly what period approach they used for recurring costs.`,
-        messages: [{ role: 'user', content: workSummary }]
-      })
+      message: workSummary
     });
 
-    const data = await resp.json();
-    const raw = data.content?.map(b => b.text || '').join('') || '';
     let result;
     try {
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
