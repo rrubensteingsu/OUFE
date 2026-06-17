@@ -230,7 +230,7 @@
 <!-- ── Password gate ── -->
 <div id="pw-gate">
   <div id="pw-box">
-    <div class="pw-course">PMAP 8261 &middot; Fall 2025</div>
+    <div class="pw-course">PMAP 8261 &middot; Fall 2026</div>
     <h2>Course Assignment</h2>
     <p>Enter the class password to access this assignment.</p>
     <input type="password" id="pw-input" placeholder="Password" autocomplete="off"
@@ -244,7 +244,7 @@
 <div id="app">
 
 <header>
-  <div class="course-tag">PMAP 8261 &middot; Nonprofit Financial Management &middot; Fall 2025</div>
+  <div class="course-tag">PMAP 8261 &middot; Nonprofit Financial Management &middot; Fall 2026</div>
   <h1>Orangetown United for Full Employment</h1>
   <p>Excel Assignment No. 1 &mdash; Time Value of Money &amp; Program Financial Feasibility</p>
 </header>
@@ -695,8 +695,12 @@ semi-annual rate = annual rate / 2,  nper = total 6-mo periods</div>
 
 <script>
 // ══════════════════════════════════════════════════════════════
+// GOOGLE SHEET ENDPOINT — paste your Apps Script URL here after setup
+// ══════════════════════════════════════════════════════════════
+const SHEET_URL = 'PASTE_YOUR_APPS_SCRIPT_URL_HERE';
+
+// ══════════════════════════════════════════════════════════════
 // FORMULA EVALUATOR
-// Supports: PV(rate,nper,pmt,[fv],[type]), arithmetic (+,-,*,/,^),
 // numeric literals, and % suffix.
 // ══════════════════════════════════════════════════════════════
 
@@ -1240,7 +1244,7 @@ async function submitAssignment() {
   const timestamp = new Date().toLocaleString('en-US', {dateStyle:'medium', timeStyle:'short'});
 
   // Populate meta and work table immediately
-  document.getElementById('rpt-meta').textContent = `${name} · Submitted ${timestamp} · PMAP 8261 Fall 2025`;
+  document.getElementById('rpt-meta').textContent = `${name} · Submitted ${timestamp} · PMAP 8261 Fall 2026`;
   buildWorkTable(work);
   document.getElementById('report-overlay').classList.add('show');
   document.getElementById('score-summary').textContent = 'Analyzing work…';
@@ -1337,7 +1341,54 @@ Be specific and constructive — reference the student's actual formulas and not
         </div>`);
     });
 
-    status.textContent = 'Report ready.';
+    status.textContent = 'Report ready. Submitting to gradebook…';
+
+    // ── POST to Google Sheet ──
+    if (SHEET_URL && SHEET_URL !== 'PASTE_YOUR_APPS_SCRIPT_URL_HERE') {
+      try {
+        const payload = {
+          timestamp,
+          name,
+          suggested_score: result.suggested_score,
+          period_handling: result.period_handling || 'unclear',
+          summary: result.summary || '',
+          // Formulas entered
+          fx_upfront:      (work.b_upfront||{}).fx      || '',
+          fx_equip_ret:    (work.b_equip_ret||{}).fx    || '',
+          fx_insurance:    (work.b_insurance||{}).fx    || '',
+          fx_trainers:     (work.b_trainers||{}).fx     || '',
+          fx_utilities:    (work.b_utilities||{}).fx    || '',
+          fx_dol:          (work.c_dol_pv||{}).fx       || '',
+          fx_foundation:   (work.c_foundation_pv||{}).fx|| '',
+          fx_tuition:      (work.q2_tuition||{}).fx     || '',
+          // Key answers
+          ans_months:      (work.a_months||{}).ans      || '',
+          ans_npv8:        (work.d_npv8||{}).ans        || '',
+          ans_npv6:        (work.d_npv6||{}).ans        || '',
+          ans_total_costs: (work.b_total_costs||{}).ans || '',
+          ans_total_rev:   (work.c_total_rev||{}).ans   || '',
+          // Checks passed
+          checks_passed:   fxPassed.size + answerPassed.size,
+          checks_total:    TOTAL_CHECKS,
+          // Section comments (compact)
+          section_notes:   (result.sections||[]).map(s=>`${s.name}: ${s.comment}`).join(' | ')
+        };
+        // Apps Script requires no-cors for cross-origin POST from a static page
+        await fetch(SHEET_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        status.textContent = 'Submitted ✓';
+      } catch(sheetErr) {
+        // Don't block the student — sheet error is silent on their end
+        status.textContent = 'Report ready.';
+        console.warn('Sheet POST failed:', sheetErr);
+      }
+    } else {
+      status.textContent = 'Report ready.';
+    }
     btn.disabled = false;
 
   } catch(e) {
